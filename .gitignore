@@ -4,3 +4,12 @@
 *.db-wal
 *.opendb
 *.ipch
+*.tlog
+*.log
+*.lastbuildstate
+*.exe
+*.pdb
+*.iobj
+*.ipdb
+*.recipe
+*.suo
