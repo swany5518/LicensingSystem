@@ -85,15 +85,14 @@ namespace crypto
 		// apply encryption
 		CryptoPP::StringSource ss(data, true, new CryptoPP::StreamTransformationFilter(encryptor, new CryptoPP::StringSink(cipher)));
 
-		return base64::encode(cipher);
+		return cipher;
 	}
 
-	__forceinline std::string aes_decrypt(const std::string& base64_encrypted_data, const std::string& base64_key, const std::string& base64_iv)
+	__forceinline std::string aes_decrypt(const std::string& data, const std::string& base64_key, const std::string& base64_iv)
 	{
 		// decode key and iv
 		auto key = ::base64::decode(base64_key);
 		auto iv = ::base64::decode(base64_iv);
-		auto data = ::base64::decode(base64_encrypted_data);
 
 		// init decryptor and set key and iv
 		CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption decryptor;
@@ -103,26 +102,26 @@ namespace crypto
 		std::string decrypted;
 
 		// apply decryption
-		CryptoPP::StringSource ss(base64_encrypted_data, true, new CryptoPP::StreamTransformationFilter(decryptor, new CryptoPP::StringSink(decrypted)));
+		CryptoPP::StringSource ss(data, true, new CryptoPP::StreamTransformationFilter(decryptor, new CryptoPP::StringSink(decrypted)));
 
 		return decrypted;
 	}
 
-	__forceinline std::string generate_base64_aes_key(int size = 16)
+	__forceinline std::string generate_aes_key(int size = 16)
 	{
 		CryptoPP::AutoSeededRandomPool rnd;
 		CryptoPP::SecByteBlock key(0x00, size);
 		rnd.GenerateBlock(key, key.size());
 
-		return base64::encode(key.data(), key.size());
+		return std::string((char*)key.data(), key.size());
 	}
 
-	__forceinline std::string generate_base64_aes_iv() 
+	__forceinline std::string generate_aes_iv() 
 	{
 		CryptoPP::AutoSeededRandomPool rnd;
 		CryptoPP::SecByteBlock iv(0x00, 16);
 		rnd.GenerateBlock(iv, iv.size());
 
-		return base64::encode(iv.data(), iv.size());
+		return std::string((char*)iv.data(), iv.size());
 	}
 }
