@@ -37,3 +37,10 @@ Client/.vs/Client/v16/.suo
 *.tlog
 *.log
 *.recipe
+*.exe
+Client/x64/Release/Client.exe
+Client/x64/Release/Client.iobj
+Client/x64/Release/Client.pdb
+Client/x64/Release/Client.ipdb
+Client/x64/Release/Client.iobj
+Client/x64/Release/Client.exe
