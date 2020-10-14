@@ -5,9 +5,11 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.KeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 import javax.crypto.Cipher;
@@ -16,28 +18,28 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class Crypto 
 {
-	static String RsaBase64PrivateKey = "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" + 
-			"P7DkVtnrDN9d/yWg==";
+	static String RsaBase64PrivateKey = "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" + 
+			"hkC/djkXONsrYibw==";
 	
 	public static void GenerateRsaKeys() throws NoSuchAlgorithmException
 	{
@@ -53,19 +55,39 @@ public class Crypto
 		System.out.println("\npublic key:\n" + pub);
 	}
 	
-	public static String RsaDecrypt(String base64EncryptedData)
+	// low level functions for byte arrays
+	public static byte[] RsaEncrypt(byte[] data, byte[] publicKeyBytes)
+	{
+		try 
+		{
+			KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+			X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKeyBytes);
+			PublicKey publicKey = keyFactory.generatePublic(keySpec);
+			
+			Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+			cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+			
+			return cipher.doFinal(data);
+		} 
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	public static byte[] RsaDecrypt(byte[] encrypted, byte[] privateKeyBytes)
 	{
 		try
 		{
 			KeyFactory kf = KeyFactory.getInstance("RSA");
-			
-			PKCS8EncodedKeySpec keySpecPKCS8 = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(RsaBase64PrivateKey));
+			PKCS8EncodedKeySpec keySpecPKCS8 = new PKCS8EncodedKeySpec(privateKeyBytes);
 			PrivateKey privKey = kf.generatePrivate(keySpecPKCS8);
 			
 			Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-1AndMGF1Padding");
 			cipher.init(Cipher.DECRYPT_MODE, privKey);
 			
-			return new String(cipher.doFinal(Base64.getDecoder().decode(base64EncryptedData)));
+			return cipher.doFinal(encrypted);
 		}
 		catch (Exception e)
 		{
@@ -75,39 +97,42 @@ public class Crypto
 		
 	}
 
-	public static String AesEncrypt(String data, String base64Key, String base64Iv)
+	public static byte[] AesEncrypt(byte[] data, byte[] key, byte[] iv)
 	{
 		try
 		{
-			IvParameterSpec iv = new IvParameterSpec(Base64.getDecoder().decode(base64Iv));
-	        SecretKeySpec key = new SecretKeySpec(Base64.getDecoder().decode(base64Key), "AES");
+			IvParameterSpec initVector = new IvParameterSpec(iv);
+	        SecretKeySpec aesKey = new SecretKeySpec(key, "AES");
 			
 	        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-	        cipher.init(Cipher.ENCRYPT_MODE, key, iv);
+	        cipher.init(Cipher.ENCRYPT_MODE, aesKey, initVector);
 	        
-	        return new String(Base64.getEncoder().encode(cipher.doFinal(data.getBytes())));
+	        return cipher.doFinal(data);
 		}
 		catch (Exception e)
 		{
+			e.printStackTrace();
 			return null;
 		}
 	}
 	
-	public static String AesDecrypt(String base64EncryptedData, String base64Key, String base64Iv)
+	public static byte[] AesDecrypt(byte[] encrypted, byte[] key, byte[] iv)
 	{
 		try
 		{
-			IvParameterSpec iv = new IvParameterSpec(Base64.getDecoder().decode(base64Iv));
-	        SecretKeySpec key = new SecretKeySpec(Base64.getDecoder().decode(base64Key), "AES");
+			IvParameterSpec initVector= new IvParameterSpec(iv);
+	        SecretKeySpec aesKey = new SecretKeySpec(key, "AES");
 			
 	        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-	        cipher.init(Cipher.DECRYPT_MODE, key, iv);
+	        cipher.init(Cipher.DECRYPT_MODE, aesKey, initVector);
 	        
-	        return new String(cipher.doFinal(Base64.getDecoder().decode(base64EncryptedData)));
+	        return cipher.doFinal(encrypted);
 		}
 		catch (Exception e)
 		{
+			e.printStackTrace();
 			return null;
 		}
 	}
+
 }
