@@ -33,6 +33,61 @@ public class DatabaseAPI
 			e.printStackTrace();
 		}
 	}
+
+	// objects representing a row in a table
+	public static class ClientRow
+	{
+		int ClientID;
+		String Username;
+		String PasswordHash;
+		String HardwareID;
+		String IpAddress;
+	}
 	
-	static void 
+	public static class LicenseRow
+	{
+		int LicenseID;
+		int ClientID;
+		int ProductID;
+		int LicenseStart;
+		int LicenseEnd;
+	}
+	
+	public static class LicenseKeyRow
+	{
+		int LicenseKeyID;
+		int ProductIDl;
+		String LicenseKey;
+		int LicenseDays;
+		String Vendor;
+	}
+	
+	public static class ProductRow
+	{
+		int ProductID;
+		String ProductName;
+		String ServerFilePath;
+	}
+	
+	public static class RedeemedKeyRow
+	{
+		int RedeemedKeyID;
+		int LicenseKeyID;
+		String LicenseKey;
+		int ClientID;
+		int ProductID;
+		int LicenseDays;
+		String Vendor;
+		int RedemptionTime;
+	}
+	
+	public static class RestrictionsRow
+	{
+		int RestrictionID;
+		int ClientID;
+		int ProductID;
+		int RestrictionStart;
+		int RestrictionEnd;
+		String Reason;
+	}
 }
