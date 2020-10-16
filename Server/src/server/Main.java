@@ -4,11 +4,11 @@ import java.security.NoSuchAlgorithmException;
 
 public class Main 
 {
-	public static void main(String[] args) throws NoSuchAlgorithmException 
+	public static void main(String[] args) throws NoSuchAlgorithmException, InterruptedException 
 	{
 		//DatabaseAPI.ClientRow result = DatabaseAPI.getClient("test1");
 		//System.out.println(result.ClientID);
 		
-		DatabaseAPI.insertClient(new DatabaseAPI.ClientRow(Random.getUUID(), "test2", "hash", "hwid", "ip"));
+		System.out.println(DatabaseAPI.getProduct("213").ProductName);
 	}
 }

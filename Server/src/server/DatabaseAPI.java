@@ -85,6 +85,58 @@ public class DatabaseAPI
 		}
 	}
 	
+	static LicenseKeyRow getLicenseKey(String key)
+	{
+		try 
+		{
+			connect();
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT LicenseKeyID, ProductID, LicenseDays, Vendor FROM licenseKey WHERE LicenseKey=?");
+			stmt.setString(1, key);
+			
+			ResultSet rs = stmt.executeQuery();
+			
+			// if rs.next() returns false, no results
+			if (!rs.next())
+				return null;
+			
+			return new LicenseKeyRow(rs.getString("LicenseKeyID"), rs.getString("ProductID"), key, rs.getInt("LicenseDays"), rs.getString("Vendor"));
+		} 
+		catch (Exception e) 
+		{
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	static ProductRow getProduct(String ProductID)
+	{
+		try 
+		{
+			connect();
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT ProductName, ServerFilepath FROM product WHERE ProductID=?");
+			stmt.setString(1, ProductID);
+			
+			ResultSet rs = stmt.executeQuery();
+			
+			// if rs.next() returns false, no results
+			if (!rs.next())
+				return null;
+			
+			return new ProductRow(ProductID, rs.getString("ProductName"), rs.getString("ServerFilepath"));
+		} 
+		catch (Exception e) 
+		{
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	static RedeemedKeyRow getRedeemedKey(String)
+	{
+		
+	}
 	//
 	// database insert functions
 	//
@@ -100,6 +152,128 @@ public class DatabaseAPI
 			stmt.setString(3, row.PasswordHash);
 			stmt.setString(4, row.HardwareID);
 			stmt.setString(5, row.IpAddress);
+			
+			stmt.executeUpdate();
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	static boolean insertLicense(LicenseRow row)
+	{
+		try 
+		{
+			connect();
+			
+			PreparedStatement stmt = con.prepareStatement("INSERT INTO license VALUES(?, ?, ?, ?, ?)");
+			stmt.setString(1, row.LicenseID);
+			stmt.setString(2, row.ClientID);
+			stmt.setString(3, row.ProductID);
+			stmt.setInt(4, row.LicenseStart);
+			stmt.setInt(5, row.LicenseEnd);
+			
+			stmt.executeUpdate();
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	static boolean insertLicenseKey(LicenseKeyRow row)
+	{
+		try 
+		{
+			connect();
+			
+			PreparedStatement stmt = con.prepareStatement("INSERT INTO licenseKey VALUES(?, ?, ?, ?, ?)");
+			stmt.setString(1, row.LicenseKeyID);
+			stmt.setString(2, row.ProductID);
+			stmt.setString(3, row.LicenseKey);
+			stmt.setInt(4, row.LicenseDays);
+			stmt.setString(5, row.Vendor);
+			
+			stmt.executeUpdate();
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+
+	static boolean insertProduct(ProductRow row)
+	{
+		try 
+		{
+			connect();
+			
+			PreparedStatement stmt = con.prepareStatement("INSERT INTO product VALUES(?, ?, ?)");
+			stmt.setString(1, row.ProductID);
+			stmt.setString(2, row.ProductName);
+			stmt.setString(3, row.ServerFilePath);
+			
+			stmt.executeUpdate();
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	static boolean insertRedeemedKey(RedeemedKeyRow row)
+	{
+		try 
+		{
+			connect();
+			
+			PreparedStatement stmt = con.prepareStatement("INSERT INTO redeemedKeys VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
+			stmt.setString(1, row.RedeemedKeyID);
+			stmt.setString(2, row.LicenseKeyID);
+			stmt.setString(3, row.LicenseKey);
+			stmt.setString(4, row.ClientID);
+			stmt.setString(5, row.ProductID);
+			stmt.setInt(6, row.LicenseDays);
+			stmt.setString(7, row.Vendor);
+			stmt.setInt(8, row.RedemptionTime);
+			
+			stmt.executeUpdate();
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+
+	static boolean insertRestriction(RestrictionsRow row)
+	{
+		try 
+		{
+			connect();
+			
+			PreparedStatement stmt = con.prepareStatement("INSERT INTO restrictions VALUES(?, ?, ?, ?, ?, ?)");
+			stmt.setString(1, row.RestrictionID);
+			stmt.setString(2, row.ClientID);
+			stmt.setString(3, row.ProductID);
+			stmt.setInt(4, row.RestrictionStart);
+			stmt.setInt(5, row.RestrictionEnd);
+			stmt.setString(6, row.Reason);
 			
 			stmt.executeUpdate();
 			
