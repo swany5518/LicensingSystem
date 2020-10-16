@@ -9,6 +9,6 @@ public class Main
 		//DatabaseAPI.ClientRow result = DatabaseAPI.getClient("test1");
 		//System.out.println(result.ClientID);
 		
-		System.out.println(DatabaseAPI.getProduct("213").ProductName);
+		System.out.println(DatabaseAPI.getRestriction("213").Reason);
 	}
 }

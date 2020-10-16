@@ -133,10 +133,57 @@ public class DatabaseAPI
 		}
 	}
 	
-	static RedeemedKeyRow getRedeemedKey(String)
+	static RedeemedKeyRow getRedeemedKey(String key)
 	{
+		try
+		{
+			connect();
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT RedeemedKeyID, LicenseKeyID, ClientID, ProductID, LicenseDays, Vendor, RedemptionTime FROM redeemedKeys WHERE LicenseKey=?");
+			stmt.setString(1, key);
+			
+			ResultSet rs = stmt.executeQuery();
+			
+			// if rs.next() returns false, no results
+			if (!rs.next())
+				return null;
 		
+			return new RedeemedKeyRow(rs.getString("RedeemedKeyID"), rs.getString("LicenseKeyID"), key, 
+					rs.getString("ClientID"), rs.getString("ProductID"), rs.getInt("LicenseDays"), 
+					rs.getString("Vendor"), rs.getInt("RedemptionTime"));
+		} 
+		catch (Exception e) 
+		{
+			e.printStackTrace();
+			return null;
+		}
 	}
+	
+	static RestrictionsRow getRestriction(String RestrictionID)
+	{
+		try
+		{
+			connect();
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT ClientID, ProductID, RestrictionStart, RestrictionEnd, Reason FROM restrictions WHERE RestrictionID=?");
+			stmt.setString(1, RestrictionID);
+			
+			ResultSet rs = stmt.executeQuery();
+			
+			// if rs.next() returns false, no results
+			if (!rs.next())
+				return null;
+		
+			return new RestrictionsRow(RestrictionID, rs.getString("ClientID"), rs.getString("ProductID"), 
+					rs.getInt("RestrictionStart"), rs.getInt("RestrictionEnd"), rs.getString("Reason"));
+		} 
+		catch (Exception e) 
+		{
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
 	//
 	// database insert functions
 	//
