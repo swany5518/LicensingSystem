@@ -91,11 +91,54 @@ namespace network
 		if (::send(sock, aes_info_packet.data(), aes_info_packet.size(), 0) == SOCKET_ERROR)
 		{
 			std::cout << "error sending key and iv to server" << std::endl;
+			return false;
 		}
 		
+		// recieve size of token packet
+		char token_size_buffer[16];
+		if (::recv(sock, token_size_buffer, 16, 0) == SOCKET_ERROR)
+		{
+			std::cout << "error receiving token packet size" << std::endl;
+			return false;
+		}
 
+		int token_size = stoi(crypto::aes_decrypt(std::string(token_size_buffer, 16), session_aes_key, session_aes_iv));
+		auto token_buffer = std::make_unique<char[]>(token_size);
+		if (::recv(sock, token_buffer.get(), token_size, 0) == SOCKET_ERROR)
+		{
+			std::cout << "error receiving token packet" << std::endl;
+			return false;
+		}
+		
+		// parse the token packet from its rnd padded data
+		std::string token_buffer_string(token_buffer.get(), token_size);
+		
+		auto token_segments = split_packet(crypto::aes_decrypt(token_buffer_string, session_aes_key, session_aes_iv));
+		if (token_segments.size() != 3 || token_segments[1].size() < 16 || token_segments[1].size() > 32)
+		{
+			std::cout << "error parsing token packet" << std::endl;
+		}
+		session_token = token_segments[1];
 
-		// todo-> add receive of session token
+		// send server that handshake is complete
+		std::string complete_packet = rnd::alphanumeric(rnd::_int(16, 32)) + "," + "handshake success," + session_token + "," + rnd::alphanumeric(rnd::_int(16, 32));
+		complete_packet = crypto::aes_encrypt(complete_packet, session_aes_key, session_aes_iv);
+		std::string complete_size = crypto::aes_encrypt(std::to_string(complete_packet.size()), session_aes_key, session_aes_iv);
+		
+		// send size of handshake complete packet
+		if (::send(sock, complete_size.data(), complete_size.size(), 0) == SOCKET_ERROR)
+		{
+			std::cout << "error sending handshake complete size" << std::endl;
+		}
+
+		// send handshake complete packet
+		if (::send(sock, complete_packet.data(), complete_packet.size(), 0) == SOCKET_ERROR)
+		{
+			std::cout << "error sending handshake complete packet" << std::endl;
+		}
+
+		send(sock, "hello", 5, 0);
+
 	}
 
 	inline bool send_packet(std::string data)

@@ -168,6 +168,14 @@ public class Crypto
 		return AesEncrypt(data, key, iv);
 	}
 	
+	public static byte[] AesEncrypt(String data, String base64Key, String base64Iv)
+	{
+		byte[] key = Base64.Decode(base64Key.getBytes());
+		byte[] iv = Base64.Decode(base64Iv.getBytes());
+		
+		return AesEncrypt(data.getBytes(), key, iv);
+	}
+	
 	public static byte[] AesDecrypt(byte[] encrypted, String base64Key, String base64Iv)
 	{
 		byte[] key = Base64.Decode(base64Key.getBytes());

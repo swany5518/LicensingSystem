@@ -41,6 +41,11 @@ public class Client implements Runnable
 		this.keyExchange();
 	}
 	
+	public void terminate()
+	{
+		//shutdown the connections and close the client
+	}
+	
 	//
 	// function that handles key exchange
 	//
@@ -64,7 +69,6 @@ public class Client implements Runnable
 				Thread.sleep(20);
 			}
 			
-			System.out.println(this.in.available());
 			// receive client hello message
 			byte[] clientHelloBuffer = new byte[clientHelloMsg.length()];
 			this.in.read(clientHelloBuffer);
@@ -111,13 +115,35 @@ public class Client implements Runnable
 				System.out.println("error parsing key and iv");
 				return false;
 			}
+			
 			this.sessionBase64AesKey = keyAndIv[0];
 			this.sessionBase64AesIv = keyAndIv[1];
 			
 			// generate and set session token
 			this.sessionToken = Random.getString(16, 32);
 			
-			System.out.println(this.sessionBase64AesIv);
+			// encrypt and send session token back, sending size first encrypted as well
+			byte[] tokenPacket = this.AesEncrypt((Random.getString(16, 32) + "," + this.sessionToken + "," + Random.getString(16, 32)));
+			System.out.println(tokenPacket.length);
+			this.out.write(this.AesEncrypt(new String(tokenPacket.length + "")));
+			this.out.write(tokenPacket);
+			
+			byte[] handshakeCompleteBufferSize = new byte[16];
+			this.in.read(handshakeCompleteBufferSize);
+			int handshakeCompleteSize = Integer.parseInt(new String(this.AesDecrypt(handshakeCompleteBufferSize)));
+			
+			byte[] handshakeCompleteBuffer = new byte[handshakeCompleteSize];
+			this.in.read(handshakeCompleteBuffer);
+			String[] handshakeCompleteSegments = new String(this.AesDecrypt(handshakeCompleteBuffer)).split(",");
+			
+			// validate handshake complete message
+			if (handshakeCompleteSegments.length != 4 || !handshakeCompleteSegments[1].equals("handshake success") || !handshakeCompleteSegments[2].equals(this.sessionToken))
+			{
+				System.out.println("invalid handshake complete message");
+				return false;
+			}
+			
+			System.out.println("handshake complete!");
 			return true;
 		}
 		catch (Exception e)
@@ -167,6 +193,43 @@ public class Client implements Runnable
 		catch (Exception e)
 		{
 			e.printStackTrace();
+			return null;
+		}
+	}
+
+	//
+	// client specific encryption functions using session key+iv
+	//
+	private byte[] AesEncrypt(byte[] data)
+	{
+		return Crypto.AesEncrypt(data, this.sessionBase64AesKey, this.sessionBase64AesIv);
+	}
+	
+	private byte[] AesEncrypt(String data)
+	{
+		try
+		{
+			return Crypto.AesEncrypt(data.getBytes(), this.sessionBase64AesKey, this.sessionBase64AesIv);
+		}
+		catch (Exception e)
+		{
+			return null;
+		}
+	}
+	
+	private byte[] AesDecrypt(byte[] data)
+	{
+		return Crypto.AesDecrypt(data, this.sessionBase64AesKey, this.sessionBase64AesIv);
+	}
+	
+	private byte[] AesDecrypt(String data)
+	{
+		try
+		{
+			return Crypto.AesDecrypt(data.getBytes("UTF-8"), this.sessionBase64AesKey, this.sessionBase64AesIv);
+		}
+		catch (Exception e)
+		{
 			return null;
 		}
 	}
