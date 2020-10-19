@@ -136,9 +136,6 @@ namespace network
 		{
 			std::cout << "error sending handshake complete packet" << std::endl;
 		}
-
-		send(sock, "hello", 5, 0);
-
 	}
 
 	inline bool send_packet(std::string data)
