@@ -61,6 +61,7 @@ namespace crypto
 		// set up rng, decryptor and string to hold decrypted
 		CryptoPP::AutoSeededRandomPool rng;
 		CryptoPP::RSAES_OAEP_SHA_Decryptor decryptor(key);
+	
 		std::string decrypted;
 
 		// apply the decryption
@@ -107,21 +108,21 @@ namespace crypto
 		return decrypted;
 	}
 
-	__forceinline std::string generate_aes_key(int size = 16)
+	__forceinline std::string generate_base64_aes_key(int size = 16)
 	{
 		CryptoPP::AutoSeededRandomPool rnd;
 		CryptoPP::SecByteBlock key(0x00, size);
 		rnd.GenerateBlock(key, key.size());
 
-		return std::string((char*)key.data(), key.size());
+		return base64::encode(std::string((char*)key.data(), key.size()));
 	}
 
-	__forceinline std::string generate_aes_iv() 
+	__forceinline std::string generate_base64_aes_iv() 
 	{
 		CryptoPP::AutoSeededRandomPool rnd;
 		CryptoPP::SecByteBlock iv(0x00, 16);
 		rnd.GenerateBlock(iv, iv.size());
 
-		return std::string((char*)iv.data(), iv.size());
+		return base64::encode(std::string((char*)iv.data(), iv.size()));
 	}
 }

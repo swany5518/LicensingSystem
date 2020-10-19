@@ -8,7 +8,7 @@ namespace base64
 	__forceinline std::string encode(const std::string& raw)
 	{
 		// init encoder and put raw data into it
-		CryptoPP::Base64Encoder encoder;
+		CryptoPP::Base64Encoder encoder{ NULL, false, 72};
 		encoder.Put((CryptoPP::byte*)raw.data(), raw.size());
 		encoder.MessageEnd();
 
@@ -23,7 +23,7 @@ namespace base64
 	__forceinline std::string encode(void* ptr, size_t size)
 	{
 		// init encoder and put raw data into it
-		CryptoPP::Base64Encoder encoder;
+		CryptoPP::Base64Encoder encoder{ NULL, false, 72 };
 		encoder.Put((CryptoPP::byte*)ptr, size);
 		encoder.MessageEnd();
 

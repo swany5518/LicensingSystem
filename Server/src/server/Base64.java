@@ -17,8 +17,8 @@ public class Base64
 		return java.util.Base64.getDecoder().decode(encoded);
 	}
 	
-	public static String Decode(String encoded)
+	public static byte[] Decode(String encoded)
 	{
-		return new String(java.util.Base64.getDecoder().decode(encoded.getBytes()));
+		return java.util.Base64.getDecoder().decode(encoded.getBytes());
 	}
 }
