@@ -30,6 +30,9 @@
     <ClInclude Include="rnd.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="sha256.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

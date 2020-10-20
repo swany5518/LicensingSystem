@@ -18,6 +18,9 @@ public class Client implements Runnable
 	String sessionBase64AesIv;
 	String sessionToken;
 	
+	boolean isInitialized;
+	boolean isGarbage;
+	
 	public Client(Socket socket)
 	{
 		try
@@ -38,12 +41,32 @@ public class Client implements Runnable
 	@Override
 	public void run() 
 	{
-		this.keyExchange();
+		if (!this.keyExchange())
+		{
+			System.out.println("key exchange failed for client");
+			return;
+		}
+		
+		
 	}
 	
 	public void terminate()
 	{
-		//shutdown the connections and close the client
+		try
+		{
+			this.in.close();
+			this.out.close();
+			this.socket.close();
+			this.isInitialized = false;
+			this.isGarbage = true;
+		}
+		catch (Exception e)
+		{
+			System.out.println("client terminate failed");
+			this.isInitialized = false;
+			this.isGarbage = true;
+			return;
+		}
 	}
 	
 	//
@@ -179,14 +202,7 @@ public class Client implements Runnable
 	{
 		try
 		{
-			byte[] incoming_size = new byte[16];
-			this.in.read(incoming_size);
-			int size = Integer.parseInt(new String(incoming_size).replaceAll(" ", ""));
-			System.out.println("Incoming packet size: " + size);
-			
-			byte[] packet = new byte[size];
-			this.in.read(packet);
-			return packet;
+			return null;
 		}
 		catch (Exception e)
 		{

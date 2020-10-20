@@ -1,6 +1,7 @@
 #include "crypto.hpp"
 #include "base64.hpp"
 #include "network.hpp"
+#include "sha256.hpp"
 
 int main()
 {
@@ -37,6 +38,9 @@ int main()
 		"CfXz9GORKXeaAtwwM3BicDpvZ+9YP9/q3kLb6p/FbRtpyHbKLbrwwhLnJ4E7lusqUh/nlOSeyOrvtYk65yzFj2T9XOBDdtsjqikTMeC5BjazJTYlMtk2AgEGHZWNi27Je5p/027K9knsG1QjVU/qcl" 
 		"B6PdBSynqitiFmWadMclSGTQ5AkQly1A1xzEHeXloKtLmOZu+h64jHDcq1fJSkn3ik4Sc";
 
-	network::connect();
-	network::key_exchange();
+	//network::connect();
+	//network::key_exchange();
+
+	auto x = base64::encode(sha256::hash_file("C:\\Users\\Aswan\\source\\repos\\bullseye\\x64\\Release\\bullseye.exe"));
+	std::cout << x << std::endl;
 }
