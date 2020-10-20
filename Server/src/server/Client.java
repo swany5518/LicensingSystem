@@ -142,8 +142,6 @@ public class Client implements Runnable
 				System.out.println("invalid handshake complete message");
 				return false;
 			}
-			
-			System.out.println("handshake complete!");
 			return true;
 		}
 		catch (Exception e)
