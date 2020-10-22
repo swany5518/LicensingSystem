@@ -16,10 +16,22 @@ public class Util
 		try 
 		{
 			byte[] file = Files.readAllBytes(Paths.get(path));
-			
 			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-			return sha256.digest(file);
 			
+			return sha256.digest(file);
+		} 
+		catch (Exception e)
+		{
+			return null;
+		}
+	}
+	
+	public static String hashString(String password)
+	{
+		try 
+		{
+			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+			return new String(Base64.Encode(sha256.digest(password.getBytes())), 0, 20);
 		} 
 		catch (Exception e)
 		{

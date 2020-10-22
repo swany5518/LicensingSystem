@@ -3,7 +3,12 @@ package server;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import java.sql.Connection;
+
 
 public class DatabaseAPI 
 {
@@ -12,34 +17,95 @@ public class DatabaseAPI
 	private static final String USER = "swany55";
 	private static final String PASS = "BA7YlD6AUWbociPs";
 	
-	private static Connection con = null;
+	//
+	// simple connection pool implementation
+	//
+	private static final int MAX_CONNECTIONS = 20;
+	private static int totalConnections = 0;
+	private static List<Connection> connectionPool = Collections.synchronizedList(new ArrayList<Connection>());
 	
-	static void connect()
+	static
 	{
-		try 
+		try
 		{
-			if (con == null || con.isClosed())
+			Class.forName(JDBC_DRIVER);
+		}
+		catch (Exception e) {};
+	}
+	
+	private static Connection getConnection()
+	{
+		while (true)
+		{
+			try
 			{
-				Class.forName(JDBC_DRIVER);
-				con = DriverManager.getConnection(DB_URL, USER, PASS);
+				synchronized (connectionPool)
+				{
+					//System.out.print(Thread.currentThread() + " in getConnection SyncBlock. Pool size: " + connectionPool.size() + " ");
+					if (connectionPool.size() == 0 && totalConnections < MAX_CONNECTIONS)
+					{
+						//System.out.print("No available connections, creating.\n");
+						++totalConnections;
+						return DriverManager.getConnection(DB_URL, USER, PASS);
+					}
+					else if (connectionPool.size() > 0)	
+					{
+						//System.out.print("connection available, using.\n");
+						Connection temp = connectionPool.remove(connectionPool.size() - 1);
+						if (!temp.isValid(3))
+						{
+							temp.close();
+							return DriverManager.getConnection(DB_URL, USER, PASS);
+						}
+						
+						return temp;
+					}
+					else
+					{
+						//System.out.print("no connections available, trying again in 1 second\n");
+					}
+				}
+				
+				Thread.sleep(100);
 			}
-			
-		} 
-		catch (Exception e) 
-		{
-			e.printStackTrace();
+			catch (Exception e) 
+			{
+				e.printStackTrace();
+				//System.out.println("error getting connection");
+			}
 		}
 	}
-
+	
+	private static void releaseConnection(Connection con)
+	{
+		while (true)
+		{
+			try
+			{
+				synchronized (connectionPool)
+				{
+					//System.out.print(Thread.currentThread() + " in relConnection() SyncBlock. Returning Connection\n");
+					connectionPool.add(con);
+					return;
+				}
+			}
+			catch (Exception e) 
+			{
+				e.printStackTrace();
+				//System.out.println("error releasing connection");
+			}
+		}
+	}
+	
 	// 
 	// database retrieval functions
 	//
 	static ClientRow getClient(String username)
 	{
+		Connection con = getConnection();
+		
 		try 
 		{
-			connect();
-			
 			PreparedStatement stmt = con.prepareStatement("SELECT ClientID, PasswordHash, HardwareID, IpAddress FROM client WHERE Username=?");
 			stmt.setString(1, username);
 			
@@ -49,10 +115,40 @@ public class DatabaseAPI
 			if (!rs.next())
 				return null;
 			
+			releaseConnection(con);
+			
 			return new ClientRow(rs.getString("ClientID"), username, rs.getString("PasswordHash"), rs.getString("HardwareID"), rs.getString("IpAddress"));
 		} 
 		catch (Exception e) 
 		{
+			totalConnections--;
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	static ClientRow getClientByHwid(String hwid)
+	{
+		try 
+		{
+			Connection con = getConnection();
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT ClientID, PasswordHash, Username, IpAddress FROM client WHERE HardwareID=?");
+			stmt.setString(1, hwid);
+			
+			ResultSet rs = stmt.executeQuery();
+		
+			// if rs.next() returns false, no results
+			if (!rs.next())
+				return null;
+			
+			releaseConnection(con);
+			
+			return new ClientRow(rs.getString("ClientID"), rs.getString("Username"), rs.getString("PasswordHash"), hwid, rs.getString("IpAddress"));
+		} 
+		catch (Exception e) 
+		{
+			totalConnections--;
 			e.printStackTrace();
 			return null;
 		}
@@ -62,7 +158,7 @@ public class DatabaseAPI
 	{
 		try 
 		{
-			connect();
+			Connection con = getConnection();
 			
 			PreparedStatement stmt = con.prepareStatement("SELECT ClientID, ProductID, LicenseStart, LicenseEnd FROM license WHERE LicenseID=?");
 			stmt.setString(1, LicenseID);
@@ -73,10 +169,41 @@ public class DatabaseAPI
 			if (!rs.next())
 				return null;
 			
+			releaseConnection(con);
+			
 			return new LicenseRow(LicenseID, rs.getString("ClientID"), rs.getString("ProductID"), rs.getInt("LicenseStart"), rs.getInt("LicenseEnd"));
 		} 
 		catch (Exception e) 
 		{
+			totalConnections--;
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	static LicenseRow getLicenseByClientAndProductID(String ClientID, String ProductID)
+	{
+		try 
+		{
+			Connection con = getConnection(); 
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT LicenseID, ProductID, LicenseStart, LicenseEnd FROM license WHERE ClientID=? AND ProductID=?");
+			stmt.setString(1, ClientID);
+			stmt.setString(2, ProductID);
+			
+			ResultSet rs = stmt.executeQuery();
+			
+			// if rs.next() returns false, no results
+			if (!rs.next())
+				return null;
+			
+			releaseConnection(con);
+			
+			return new LicenseRow(rs.getString("LicenseID"), ClientID, ProductID, rs.getInt("LicenseStart"), rs.getInt("LicenseEnd"));
+		} 
+		catch (Exception e) 
+		{
+			totalConnections--;
 			e.printStackTrace();
 			return null;
 		}
@@ -86,9 +213,9 @@ public class DatabaseAPI
 	{
 		try 
 		{
-			connect();
+			Connection con = getConnection(); 
 			
-			PreparedStatement stmt = con.prepareStatement("SELECT LicenseKeyID, ProductID, LicenseDays, Vendor FROM licenseKey WHERE LicenseKey=?");
+			PreparedStatement stmt = con.prepareStatement("SELECT ProductID, LicenseDays, Vendor FROM licenseKey WHERE LicenseKey=?");
 			stmt.setString(1, key);
 			
 			ResultSet rs = stmt.executeQuery();
@@ -97,10 +224,13 @@ public class DatabaseAPI
 			if (!rs.next())
 				return null;
 			
-			return new LicenseKeyRow(rs.getString("LicenseKeyID"), rs.getString("ProductID"), key, rs.getInt("LicenseDays"), rs.getString("Vendor"));
+			releaseConnection(con);
+			
+			return new LicenseKeyRow(key, rs.getString("ProductID"), rs.getInt("LicenseDays"), rs.getString("Vendor"));
 		} 
 		catch (Exception e) 
 		{
+			totalConnections--;
 			e.printStackTrace();
 			return null;
 		}
@@ -110,7 +240,7 @@ public class DatabaseAPI
 	{
 		try 
 		{
-			connect();
+			Connection con = getConnection(); 
 			
 			PreparedStatement stmt = con.prepareStatement("SELECT ProductName, ServerFilepath FROM product WHERE ProductID=?");
 			stmt.setString(1, ProductID);
@@ -121,10 +251,13 @@ public class DatabaseAPI
 			if (!rs.next())
 				return null;
 			
+			releaseConnection(con);
+			
 			return new ProductRow(ProductID, rs.getString("ProductName"), rs.getString("ServerFilepath"));
 		} 
 		catch (Exception e) 
 		{
+			totalConnections--;
 			e.printStackTrace();
 			return null;
 		}
@@ -134,9 +267,9 @@ public class DatabaseAPI
 	{
 		try
 		{
-			connect();
+			Connection con = getConnection(); 
 			
-			PreparedStatement stmt = con.prepareStatement("SELECT RedeemedKeyID, LicenseKeyID, ClientID, ProductID, LicenseDays, Vendor, RedemptionTime FROM redeemedKeys WHERE LicenseKey=?");
+			PreparedStatement stmt = con.prepareStatement("SELECT ClientID, ProductID, LicenseDays, Vendor, RedemptionTime FROM redeemedKeys WHERE LicenseKey=?");
 			stmt.setString(1, key);
 			
 			ResultSet rs = stmt.executeQuery();
@@ -145,12 +278,14 @@ public class DatabaseAPI
 			if (!rs.next())
 				return null;
 		
-			return new RedeemedKeyRow(rs.getString("RedeemedKeyID"), rs.getString("LicenseKeyID"), key, 
-					rs.getString("ClientID"), rs.getString("ProductID"), rs.getInt("LicenseDays"), 
+			releaseConnection(con);
+			
+			return new RedeemedKeyRow(key, rs.getString("ClientID"), rs.getString("ProductID"), rs.getInt("LicenseDays"), 
 					rs.getString("Vendor"), rs.getInt("RedemptionTime"));
 		} 
 		catch (Exception e) 
 		{
+			totalConnections--;
 			e.printStackTrace();
 			return null;
 		}
@@ -160,7 +295,7 @@ public class DatabaseAPI
 	{
 		try
 		{
-			connect();
+			Connection con = getConnection(); 
 			
 			PreparedStatement stmt = con.prepareStatement("SELECT ClientID, ProductID, RestrictionStart, RestrictionEnd, Reason FROM restrictions WHERE RestrictionID=?");
 			stmt.setString(1, RestrictionID);
@@ -171,11 +306,14 @@ public class DatabaseAPI
 			if (!rs.next())
 				return null;
 		
+			releaseConnection(con);
+			
 			return new RestrictionsRow(RestrictionID, rs.getString("ClientID"), rs.getString("ProductID"), 
 					rs.getInt("RestrictionStart"), rs.getInt("RestrictionEnd"), rs.getString("Reason"));
 		} 
 		catch (Exception e) 
 		{
+			totalConnections--;
 			e.printStackTrace();
 			return null;
 		}
@@ -188,7 +326,7 @@ public class DatabaseAPI
 	{
 		try 
 		{
-			connect();
+			Connection con = getConnection();
 			
 			PreparedStatement stmt = con.prepareStatement("INSERT INTO client VALUES(?, ?, ?, ?, ?)");
 			stmt.setString(1, row.ClientID);
@@ -199,10 +337,13 @@ public class DatabaseAPI
 			
 			stmt.executeUpdate();
 			
+			 releaseConnection(con);
+			
 			return true;
 		}
 		catch (Exception e)
 		{
+			totalConnections--;
 			e.printStackTrace();
 			return false;
 		}
@@ -212,7 +353,7 @@ public class DatabaseAPI
 	{
 		try 
 		{
-			connect();
+			Connection con = getConnection();
 			
 			PreparedStatement stmt = con.prepareStatement("INSERT INTO license VALUES(?, ?, ?, ?, ?)");
 			stmt.setString(1, row.LicenseID);
@@ -223,10 +364,13 @@ public class DatabaseAPI
 			
 			stmt.executeUpdate();
 			
+			 releaseConnection(con);
+			
 			return true;
 		}
 		catch (Exception e)
 		{
+			totalConnections--;
 			e.printStackTrace();
 			return false;
 		}
@@ -236,21 +380,23 @@ public class DatabaseAPI
 	{
 		try 
 		{
-			connect();
+			Connection con = getConnection(); 
 			
-			PreparedStatement stmt = con.prepareStatement("INSERT INTO licenseKey VALUES(?, ?, ?, ?, ?)");
-			stmt.setString(1, row.LicenseKeyID);
+			PreparedStatement stmt = con.prepareStatement("INSERT INTO licenseKey VALUES(?, ?, ?, ?)");
+			stmt.setString(1, row.LicenseKey);
 			stmt.setString(2, row.ProductID);
-			stmt.setString(3, row.LicenseKey);
-			stmt.setInt(4, row.LicenseDays);
-			stmt.setString(5, row.Vendor);
+			stmt.setInt(3, row.LicenseDays);
+			stmt.setString(4, row.Vendor);
 			
 			stmt.executeUpdate();
+			
+			releaseConnection(con);
 			
 			return true;
 		}
 		catch (Exception e)
 		{
+			totalConnections--;
 			e.printStackTrace();
 			return false;
 		}
@@ -260,7 +406,7 @@ public class DatabaseAPI
 	{
 		try 
 		{
-			connect();
+			Connection con = getConnection(); 
 			
 			PreparedStatement stmt = con.prepareStatement("INSERT INTO product VALUES(?, ?, ?)");
 			stmt.setString(1, row.ProductID);
@@ -269,10 +415,13 @@ public class DatabaseAPI
 			
 			stmt.executeUpdate();
 			
+			releaseConnection(con);
+			
 			return true;
 		}
 		catch (Exception e)
 		{
+			totalConnections--;
 			e.printStackTrace();
 			return false;
 		}
@@ -282,24 +431,25 @@ public class DatabaseAPI
 	{
 		try 
 		{
-			connect();
+			Connection con = getConnection(); 
 			
-			PreparedStatement stmt = con.prepareStatement("INSERT INTO redeemedKeys VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
-			stmt.setString(1, row.RedeemedKeyID);
-			stmt.setString(2, row.LicenseKeyID);
-			stmt.setString(3, row.LicenseKey);
-			stmt.setString(4, row.ClientID);
-			stmt.setString(5, row.ProductID);
-			stmt.setInt(6, row.LicenseDays);
-			stmt.setString(7, row.Vendor);
-			stmt.setInt(8, row.RedemptionTime);
+			PreparedStatement stmt = con.prepareStatement("INSERT INTO redeemedKeys VALUES(?, ?, ?, ?, ?, ?)");
+			stmt.setString(1, row.LicenseKey);
+			stmt.setString(2, row.ClientID);
+			stmt.setString(3, row.ProductID);
+			stmt.setInt(4, row.LicenseDays);
+			stmt.setString(5, row.Vendor);
+			stmt.setInt(6, row.RedemptionTime);
 			
 			stmt.executeUpdate();
+			
+			releaseConnection(con);
 			
 			return true;
 		}
 		catch (Exception e)
 		{
+			totalConnections--;
 			e.printStackTrace();
 			return false;
 		}
@@ -309,7 +459,7 @@ public class DatabaseAPI
 	{
 		try 
 		{
-			connect();
+			Connection con = getConnection(); 
 			
 			PreparedStatement stmt = con.prepareStatement("INSERT INTO restrictions VALUES(?, ?, ?, ?, ?, ?)");
 			stmt.setString(1, row.RestrictionID);
@@ -321,10 +471,67 @@ public class DatabaseAPI
 			
 			stmt.executeUpdate();
 			
+			releaseConnection(con);
+			
 			return true;
 		}
 		catch (Exception e)
 		{
+			totalConnections--;
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	//
+	// database delete functions
+	//
+	static boolean removeLicenseKey(String key)
+	{
+		try
+		{
+			Connection con = getConnection();
+			PreparedStatement stmt = con.prepareStatement("DELETE FROM licenseKey WHERE licenseKey=?");
+			stmt.setString(1, key);
+			
+			stmt.executeUpdate();
+			
+			releaseConnection(con);
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			totalConnections--;
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	//
+	// database update functions
+	//
+	static boolean updateLicense(LicenseRow update)
+	{
+		try
+		{
+			Connection con = getConnection();
+			
+			//preparing statement 
+			PreparedStatement stmt = con.prepareStatement("UPDATE license SET ClientID=?, ProductID=?, LicenseEnd=? WHERE LicenseID=?");
+			stmt.setString(1, update.ClientID);
+			stmt.setString(2, update.ProductID);
+			stmt.setInt(3, update.LicenseEnd);
+			
+			stmt.executeUpdate();
+		
+			releaseConnection(con);
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			totalConnections--;
 			e.printStackTrace();
 			return false;
 		}
@@ -371,17 +578,15 @@ public class DatabaseAPI
 	
 	public static class LicenseKeyRow
 	{
-		String LicenseKeyID;
-		String ProductID;
 		String LicenseKey;
+		String ProductID;
 		int LicenseDays;
 		String Vendor;
 		
-		public LicenseKeyRow(String licenseKeyID, String productID, String licenseKey, int licenseDays, String vendor) 
+		public LicenseKeyRow(String licenseKey, String productID, int licenseDays, String vendor) 
 		{
-			LicenseKeyID = licenseKeyID;
-			ProductID = productID;
 			LicenseKey = licenseKey;
+			ProductID = productID;
 			LicenseDays = licenseDays;
 			Vendor = vendor;
 		}
@@ -403,8 +608,6 @@ public class DatabaseAPI
 	
 	public static class RedeemedKeyRow
 	{
-		String RedeemedKeyID;
-		String LicenseKeyID;
 		String LicenseKey;
 		String ClientID;
 		String ProductID;
@@ -412,10 +615,8 @@ public class DatabaseAPI
 		String Vendor;
 		int RedemptionTime;
 		
-		public RedeemedKeyRow(String redeemedKeyID, String licenseKeyID, String licenseKey, String clientID, String productID, int licenseDays, String vendor, int redemptionTime) 
+		public RedeemedKeyRow(String licenseKey, String clientID, String productID, int licenseDays, String vendor, int redemptionTime) 
 		{
-			RedeemedKeyID = redeemedKeyID;
-			LicenseKeyID = licenseKeyID;
 			LicenseKey = licenseKey;
 			ClientID = clientID;
 			ProductID = productID;

@@ -1,13 +1,15 @@
 package server;
 
-import java.io.UnsupportedEncodingException;
-
 public class Main 
 {
-	public static void main(String[] args) throws UnsupportedEncodingException 
+	public static void main(String[] args)
 	{
-		Util.hashFileBytes("C:\\Users\\Aswan\\source\\repos\\bullseye\\x64\\Release\\bullseye.exe");
-		//Server server = new Server(5444);
-		//server.start();
+		DatabaseActions.RegisterResult rslt = DatabaseActions.attemptRegister("prusm4", "p1useword", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab", "1iHFBy8M-46jN-90oM-WeKM-r50NUor84XtT", "ipaddress");
+		//DatabaseActions.RedeemResult rslt1 = DatabaseActions.attemptRedeem("JK22z3Wb-aQrn-P4dR-NhoG-X1ZVJzNIo23U", "0tTNIPxW-aV07-Bfzl-D8eI-QnGtMkI8CPAG");
+		
+		//for (int i = 0; i < 100; ++i)
+			//DatabaseAPI.insertLicenseKey(new DatabaseAPI.LicenseKeyRow(Random.getUUID(), "12", 10, "test vendor"));
+		
+		System.out.println(rslt.ordinal());
 	}
 }
