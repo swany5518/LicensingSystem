@@ -1,7 +1,28 @@
 package server;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+
 public class DatabaseActions 
 {
+	public static class LoginReturn
+	{
+		LoginResult result;
+		String info;
+		
+		LoginReturn(LoginResult result, String info)
+		{
+			this.result = result;
+			this.info = info;
+		}
+		
+		LoginReturn(LoginResult result)
+		{
+			this.result = result;
+			this.info = "";
+		}
+	}
+	
 	public static enum RegisterResult
 	{
 		success,
@@ -25,10 +46,11 @@ public class DatabaseActions
 		success,
 		invalidUsername,
 		invalidPassword,
-		UsernameNotFound,
+		usernameNotFound,
 		incorrectPassword,
 		hwidMismatch,
-		banned
+		banned,
+		unknownError
 	}
 	
 	public static RegisterResult attemptRegister(String username, String password, String hwid, String key, String ip)
@@ -122,6 +144,59 @@ public class DatabaseActions
 		return RedeemResult.unknownError;
 	}
 
+	public static LoginReturn attemptLogin(String username, String password, String hwid)
+	{
+		username = username.toLowerCase();
+		// validate all field formats
+		if (!filterUsername(username))
+			return new LoginReturn(LoginResult.invalidUsername);
+		if (!filterPassword(password))
+			return new LoginReturn(LoginResult.invalidPassword);
+		if (!filterHwid(hwid))
+			return new LoginReturn(LoginResult.unknownError);
+		
+		password = Util.hashString(password);
+		
+		DatabaseAPI.ClientRow client = DatabaseAPI.getClient(username);
+		
+		if (client == null)
+			return new LoginReturn(LoginResult.usernameNotFound);
+		if (!client.HardwareID.equals(hwid))
+			return new LoginReturn(LoginResult.hwidMismatch);
+		if (!client.PasswordHash.equals(password))
+			return new LoginReturn(LoginResult.incorrectPassword);
+		
+		DatabaseAPI.RestrictionsRow restrictions = DatabaseAPI.getRestrictionByClientID(client.ClientID);
+		
+		// if banned from all products
+		if (restrictions != null && restrictions.ProductID.equals("all products"))
+			return new LoginReturn(LoginResult.banned, restrictions.Reason);
+		
+		return new LoginReturn(LoginResult.success, client.ClientID);
+	}
+	
+	public static ArrayList<DatabaseAPI.LicenseRow> getActiveLicenses(String ClientID)
+	{
+		ArrayList<DatabaseAPI.LicenseRow> licenses = DatabaseAPI.getLicenses(ClientID);
+		ArrayList<DatabaseAPI.RestrictionsRow> restrictions = DatabaseAPI.getRestrictions(ClientID);
+		
+		// remove any restricted licenses
+		Iterator<DatabaseAPI.LicenseRow> it = licenses.iterator();
+		while (it.hasNext())
+		{
+			DatabaseAPI.LicenseRow license = it.next();
+			
+			for (DatabaseAPI.RestrictionsRow restriction : restrictions)
+				if (restriction.ProductID.equals(license.ProductID))
+					it.remove();	
+		}
+		
+		if (licenses.size() == 0)
+			return null;
+		
+		return licenses;
+	}
+	
 	private static boolean filterPassword(String password)
 	{
 		String SpecialPasswordCharacters = "!#$%&()*+-.:;<=>?@[]_{|}~";
@@ -189,4 +264,3 @@ public class DatabaseActions
 		return true;
 	}
 }
-

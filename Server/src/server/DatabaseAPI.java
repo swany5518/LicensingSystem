@@ -209,6 +209,44 @@ public class DatabaseAPI
 		}
 	}
 	
+	static ArrayList<LicenseRow> getLicenses(String ClientID)
+	{
+		try 
+		{
+			Connection con = getConnection();
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT LicenseID, ProductID, LicenseStart, LicenseEnd FROM license WHERE ClientID=?");
+			stmt.setString(1, ClientID);
+			
+			ResultSet rs = stmt.executeQuery();
+			ArrayList<LicenseRow> list = new ArrayList<LicenseRow>();
+			
+			while (rs.next())
+			{
+				LicenseRow row = new LicenseRow(rs.getString("LicenseID"), ClientID, rs.getString("ProductID"), rs.getInt("LicenseStart"), rs.getInt("LicenseEnd"));
+				
+				if (row.LicenseEnd >= Util.getServerSecond())
+					list.add(row);
+				else
+					removeLicense(row.LicenseID);
+			}
+			
+			releaseConnection(con);
+			
+			if (list.size() == 0)
+				return null;
+			
+			return list;
+			
+		} 
+		catch (Exception e) 
+		{
+			totalConnections--;
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
 	static LicenseKeyRow getLicenseKey(String key)
 	{
 		try 
@@ -309,6 +347,71 @@ public class DatabaseAPI
 			releaseConnection(con);
 			
 			return new RestrictionsRow(RestrictionID, rs.getString("ClientID"), rs.getString("ProductID"), 
+					rs.getInt("RestrictionStart"), rs.getInt("RestrictionEnd"), rs.getString("Reason"));
+		} 
+		catch (Exception e) 
+		{
+			totalConnections--;
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	static ArrayList<RestrictionsRow> getRestrictions(String ClientID)
+	{
+		try
+		{
+			Connection con = getConnection(); 
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT RestrictionID, ProductID, RestrictionStart, RestrictionEnd, Reason FROM restrictions WHERE ClientID=?");
+			stmt.setString(1, ClientID);
+			ResultSet rs = stmt.executeQuery();
+			
+			ArrayList<RestrictionsRow> list = new ArrayList<RestrictionsRow>();
+			
+			while (rs.next())
+			{
+				RestrictionsRow row = new RestrictionsRow(rs.getString("RestrictionID"), ClientID, rs.getString("ProductID"), rs.getInt("RestrictionStart"), rs.getInt("RestrictionEnd"), rs.getString("Reason"));
+				
+				if (row.RestrictionEnd >= Util.getServerSecond())
+					list.add(row);
+				else
+					removeRestriction(row.RestrictionID);	
+			}
+		
+			releaseConnection(con);
+			
+			if (list.size() == 0)
+				return null;
+			
+			return list;
+		} 
+		catch (Exception e) 
+		{
+			totalConnections--;
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	static RestrictionsRow getRestrictionByClientID(String ClientID)
+	{
+		try
+		{
+			Connection con = getConnection(); 
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT RestrictionID, ProductID, RestrictionStart, RestrictionEnd, Reason FROM restrictions WHERE ClientID=?");
+			stmt.setString(1, ClientID);
+			
+			ResultSet rs = stmt.executeQuery();
+			
+			// if rs.next() returns false, no results
+			if (!rs.next())
+				return null;
+		
+			releaseConnection(con);
+			
+			return new RestrictionsRow(rs.getString("RestrictionID"), ClientID, rs.getString("ProductID"), 
 					rs.getInt("RestrictionStart"), rs.getInt("RestrictionEnd"), rs.getString("Reason"));
 		} 
 		catch (Exception e) 
@@ -491,8 +594,52 @@ public class DatabaseAPI
 		try
 		{
 			Connection con = getConnection();
-			PreparedStatement stmt = con.prepareStatement("DELETE FROM licenseKey WHERE licenseKey=?");
+			PreparedStatement stmt = con.prepareStatement("DELETE FROM licenseKey WHERE LicenseKey=?");
 			stmt.setString(1, key);
+			
+			stmt.executeUpdate();
+			
+			releaseConnection(con);
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			totalConnections--;
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	static boolean removeLicense(String LicenseID)
+	{
+		try
+		{
+			Connection con = getConnection();
+			PreparedStatement stmt = con.prepareStatement("DELETE FROM license WHERE LicenseID=?");
+			stmt.setString(1, LicenseID);
+			
+			stmt.executeUpdate();
+			
+			releaseConnection(con);
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			totalConnections--;
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	static boolean removeRestriction(String RestrictionID)
+	{
+		try
+		{
+			Connection con = getConnection();
+			PreparedStatement stmt = con.prepareStatement("DELETE FROM restrictions WHERE RestrictionID=?");
+			stmt.setString(1, RestrictionID);
 			
 			stmt.executeUpdate();
 			
