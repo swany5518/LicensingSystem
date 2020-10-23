@@ -7,7 +7,7 @@
 
 namespace sha256
 {
-	std::string hash_file(const std::string& path)
+	inline std::string hash_file(const std::string& path)
 	{
 		std::vector<uint8_t> bytes{};
 
@@ -22,6 +22,18 @@ namespace sha256
 		hash.Update((CryptoPP::byte*)bytes.data(), bytes.size());
 		digest.resize(hash.DigestSize());
 		hash.Final((CryptoPP::byte*) &digest[0]);
+
+		return digest;
+	}
+
+	inline std::string hash_file(const std::vector<uint8_t>& file_bytes)
+	{
+		std::string digest;
+
+		CryptoPP::SHA256 hash;
+		hash.Update((CryptoPP::byte*)file_bytes.data(), file_bytes.size());
+		digest.resize(hash.DigestSize());
+		hash.Final((CryptoPP::byte*) & digest[0]);
 
 		return digest;
 	}
