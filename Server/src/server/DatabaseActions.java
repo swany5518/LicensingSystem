@@ -1,5 +1,7 @@
 package server;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Iterator;
 
@@ -19,7 +21,35 @@ public class DatabaseActions
 		LoginReturn(LoginResult result)
 		{
 			this.result = result;
+			this.info = " ";
+		}
+	}
+	
+	public static class ProductRequestReturn
+	{
+		ProductRequestResult result;
+		String info;
+		int secondsLeft;
+		
+		public ProductRequestReturn(ProductRequestResult result)
+		{
+			this.result = result;
 			this.info = "";
+			this.secondsLeft = 0;
+		}
+		
+		public ProductRequestReturn(ProductRequestResult result, String info)
+		{
+			this.result = result;
+			this.info = info;
+			this.secondsLeft = 0;
+		}
+		
+		public ProductRequestReturn(ProductRequestResult result, String info, int secondsLeft)
+		{
+			this.result = result;
+			this.info = info;
+			this.secondsLeft = secondsLeft;
 		}
 	}
 	
@@ -50,6 +80,17 @@ public class DatabaseActions
 		incorrectPassword,
 		hwidMismatch,
 		banned,
+		unknownError
+	}
+	
+	public static enum ProductRequestResult
+	{
+		success,
+		noLicenseFound,
+		expired,
+		banned,
+		productDown,
+		productNotFound,
 		unknownError
 	}
 	
@@ -88,7 +129,6 @@ public class DatabaseActions
 		
 		if (rslt != RedeemResult.success)
 			return RegisterResult.unknownError;
-		
 		
 		return RegisterResult.success;
 	}
@@ -162,7 +202,11 @@ public class DatabaseActions
 		if (client == null)
 			return new LoginReturn(LoginResult.usernameNotFound);
 		if (!client.HardwareID.equals(hwid))
+		{
+			if (client.HardwareID.equals("reset"))
+				
 			return new LoginReturn(LoginResult.hwidMismatch);
+		}
 		if (!client.PasswordHash.equals(password))
 			return new LoginReturn(LoginResult.incorrectPassword);
 		
@@ -178,7 +222,15 @@ public class DatabaseActions
 	public static ArrayList<DatabaseAPI.LicenseRow> getActiveLicenses(String ClientID)
 	{
 		ArrayList<DatabaseAPI.LicenseRow> licenses = DatabaseAPI.getLicenses(ClientID);
+		if (licenses == null)
+			return null;
 		ArrayList<DatabaseAPI.RestrictionsRow> restrictions = DatabaseAPI.getRestrictions(ClientID);
+		if (restrictions == null)
+			return licenses;
+		
+		for (DatabaseAPI.RestrictionsRow restriction : restrictions)
+			if (restriction.ProductID.equals("all products"))
+				return null;
 		
 		// remove any restricted licenses
 		Iterator<DatabaseAPI.LicenseRow> it = licenses.iterator();
@@ -195,6 +247,35 @@ public class DatabaseActions
 			return null;
 		
 		return licenses;
+	}
+	
+	public static ProductRequestReturn requestProduct(String ClientID, String ProductID)
+	{
+		DatabaseAPI.LicenseRow row = DatabaseAPI.getLicenseByClientAndProductID(ClientID, ProductID);
+		
+		if (row == null)
+			return new ProductRequestReturn(ProductRequestResult.noLicenseFound);
+		
+		if (row.LicenseEnd <= Util.getServerSecond())
+			return new ProductRequestReturn(ProductRequestResult.expired);
+		
+		// verify product exists on server
+		DatabaseAPI.ProductRow product = DatabaseAPI.getProduct(ProductID);
+		if (product == null || !new File(product.ServerFilePath).isFile())
+			return new ProductRequestReturn(ProductRequestResult.productNotFound);
+		
+		// check if product is down
+		if (!product.Status.equals("up"))
+			return new ProductRequestReturn(ProductRequestResult.productDown, product.Status);
+			
+		// check for restrictions
+		DatabaseAPI.RestrictionsRow restriction = DatabaseAPI.getRestrictionByClientAndProductID(ClientID, ProductID);
+		if (restriction != null && restriction.RestrictionEnd > Util.getServerSecond())
+			return new ProductRequestReturn(ProductRequestResult.banned, restriction.Reason);
+		else if (restriction != null)
+			DatabaseAPI.removeRestriction(restriction.RestrictionID);
+		
+		return new ProductRequestReturn(ProductRequestResult.success, product.ServerFilePath, row.LicenseEnd - Util.getServerSecond());
 	}
 	
 	private static boolean filterPassword(String password)

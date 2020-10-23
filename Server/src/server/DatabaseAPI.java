@@ -187,7 +187,7 @@ public class DatabaseAPI
 		{
 			Connection con = getConnection(); 
 			
-			PreparedStatement stmt = con.prepareStatement("SELECT LicenseID, ProductID, LicenseStart, LicenseEnd FROM license WHERE ClientID=? AND ProductID=?");
+			PreparedStatement stmt = con.prepareStatement("SELECT LicenseID, LicenseStart, LicenseEnd FROM license WHERE ClientID=? AND ProductID=?");
 			stmt.setString(1, ClientID);
 			stmt.setString(2, ProductID);
 			
@@ -280,7 +280,7 @@ public class DatabaseAPI
 		{
 			Connection con = getConnection(); 
 			
-			PreparedStatement stmt = con.prepareStatement("SELECT ProductName, ServerFilepath FROM product WHERE ProductID=?");
+			PreparedStatement stmt = con.prepareStatement("SELECT ProductName, Status, ServerFilepath FROM product WHERE ProductID=?");
 			stmt.setString(1, ProductID);
 			
 			ResultSet rs = stmt.executeQuery();
@@ -291,7 +291,7 @@ public class DatabaseAPI
 			
 			releaseConnection(con);
 			
-			return new ProductRow(ProductID, rs.getString("ProductName"), rs.getString("ServerFilepath"));
+			return new ProductRow(ProductID, rs.getString("ProductName"), rs.getString("Status"), rs.getString("ServerFilepath"));
 		} 
 		catch (Exception e) 
 		{
@@ -422,6 +422,35 @@ public class DatabaseAPI
 		}
 	}
 	
+	static RestrictionsRow getRestrictionByClientAndProductID(String ClientID, String ProductID)
+	{
+		try
+		{
+			Connection con = getConnection(); 
+			
+			PreparedStatement stmt = con.prepareStatement("SELECT RestrictionID, RestrictionStart, RestrictionEnd, Reason FROM restrictions WHERE ClientID=? AND ProductID=?");
+			stmt.setString(1, ClientID);
+			stmt.setString(2, ProductID);
+			
+			ResultSet rs = stmt.executeQuery();
+			
+			// if rs.next() returns false, no results
+			if (!rs.next())
+				return null;
+		
+			releaseConnection(con);
+			
+			return new RestrictionsRow(rs.getString("RestrictionID"), ClientID, ProductID, 
+					rs.getInt("RestrictionStart"), rs.getInt("RestrictionEnd"), rs.getString("Reason"));
+		} 
+		catch (Exception e) 
+		{
+			totalConnections--;
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
 	//
 	// database insert functions
 	//
@@ -511,10 +540,11 @@ public class DatabaseAPI
 		{
 			Connection con = getConnection(); 
 			
-			PreparedStatement stmt = con.prepareStatement("INSERT INTO product VALUES(?, ?, ?)");
+			PreparedStatement stmt = con.prepareStatement("INSERT INTO product VALUES(?, ?, ?, ?)");
 			stmt.setString(1, row.ProductID);
 			stmt.setString(2, row.ProductName);
-			stmt.setString(3, row.ServerFilePath);
+			stmt.setString(3, row.Status);
+			stmt.setString(4, row.ServerFilePath);
 			
 			stmt.executeUpdate();
 			
@@ -684,6 +714,31 @@ public class DatabaseAPI
 		}
 	}
 	
+	static boolean updateClientHwid(String ClientID, String newHwid)
+	{
+		try
+		{
+			Connection con = getConnection();
+			
+			//preparing statement 
+			PreparedStatement stmt = con.prepareStatement("UPDATE client SET HardwareID=? WHERE ClientID=?");
+			stmt.setString(1, newHwid);
+			stmt.setString(2, ClientID);
+			
+			stmt.executeUpdate();
+		
+			releaseConnection(con);
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			totalConnections--;
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
 	//
 	// objects that represent a row in a table
 	//
@@ -743,12 +798,14 @@ public class DatabaseAPI
 	{
 		String ProductID;
 		String ProductName;
+		String Status;
 		String ServerFilePath;
 		
-		public ProductRow(String productID, String productName, String serverFilePath) 
+		public ProductRow(String productID, String productName, String status, String serverFilePath) 
 		{
 			ProductID = productID;
 			ProductName = productName;
+			Status = status;
 			ServerFilePath = serverFilePath;
 		}
 	}

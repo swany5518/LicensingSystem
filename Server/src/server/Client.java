@@ -4,12 +4,21 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.ArrayList;
 
 //
 // Client class that represents a client connection to the server
 //
 public class Client implements Runnable
 {
+	private static enum PacketType
+	{
+		login,
+		register,
+		redeemKey,
+		getLicences,
+		productRequst
+	}
 	private Socket socket;
 	private DataInputStream in;
 	private DataOutputStream out;
@@ -18,14 +27,20 @@ public class Client implements Runnable
 	String sessionBase64AesIv;
 	String sessionToken;
 	
+	long lastInteraction;
 	boolean isInitialized;
 	boolean isGarbage;
+	
+	String ipAddress;
+	String clientID;
+	String username;
 	
 	public Client(Socket socket)
 	{
 		try
 		{
 			this.socket = socket;
+			this.ipAddress = socket.getInetAddress().getHostAddress();
 			this.in = new DataInputStream(socket.getInputStream());
 			this.out = new DataOutputStream(socket.getOutputStream());
 		}
@@ -47,7 +62,22 @@ public class Client implements Runnable
 			return;
 		}
 		
-		
+		while (isInitialized)
+		{
+			try
+			{
+				String packet = this.receivePacket();
+				if (packet == null)
+					this.terminate();
+				
+				this.handlePacket(packet);
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+				this.terminate();
+			}
+		}
 	}
 	
 	public void terminate()
@@ -95,7 +125,6 @@ public class Client implements Runnable
 			// receive client hello message
 			byte[] clientHelloBuffer = new byte[clientHelloMsg.length()];
 			this.in.read(clientHelloBuffer);
-			
 			
 			// if the message is not "hello server", error
 			if (!new String(clientHelloBuffer).equals(clientHelloMsg))
@@ -175,20 +204,87 @@ public class Client implements Runnable
 	}
 	
 	//
-	// packet send and receive functions
+	// function to handle incoming packets, and respond
 	//
-	public boolean sendPacket(byte[] packet)
+	public void handlePacket(String packet)
 	{
 		try
 		{
-			String size = packet.length + "";
+			System.out.println("Client sent: " + packet);
+			// all packets have randominpadding,type,sessiontoken,otherdata...
+			String[] segments = packet.split(",");
 			
-			while (size.length() < 16)
-				size += " ";
+			PacketType type = PacketType.values()[Integer.parseInt(segments[1])];
+			if (!segments[2].equals(this.sessionToken))
+				this.terminate();
 			
-			out.write(size.getBytes());
+			// randompadding,0,sessiontoken,username,password,hwid,randomPadding
+			if (type == PacketType.login)
+			{
+				DatabaseActions.LoginReturn rslt = DatabaseActions.attemptLogin(segments[3], segments[4], segments[5]);
+				
+				// only success needs special handing, the result info will contain ClientID
+				if (rslt.result == DatabaseActions.LoginResult.success)
+				{
+					this.clientID = rslt.info;
+					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + ", ," + Random.getString(16,  32));
+				}
+				else
+					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.info + "," + Random.getString(16,  32));
+			}
+			// randompadding,1,sessiontoken,username,password,hwid,productKey,randomPadding
+			else if (type == PacketType.register)
+			{
+				DatabaseActions.RegisterResult rslt = DatabaseActions.attemptRegister(segments[3], segments[4], segments[5], segments[6], this.ipAddress);
+				
+				this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.ordinal() + "," + Random.getString(16,  32));
+			}
+			// randompadding,2,sessiontoken,key,randomPadding
+			else if (type == PacketType.redeemKey)
+			{
+				DatabaseActions.RedeemResult rslt = DatabaseActions.attemptRedeem(this.clientID, segments[3]);
+				this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.ordinal() + "," + Random.getString(16,  32));
+			}
+			// randompadding,3,sessiontoken,hwid,randompadding
+			else if (type == PacketType.getLicences)
+			{
+				ArrayList<DatabaseAPI.LicenseRow> licenses = DatabaseActions.getActiveLicenses(this.clientID);
+				
+				String response = Random.getString(16, 32) + "," + this.sessionToken + "," + licenses.size();
+				
+				for (DatabaseAPI.LicenseRow row : licenses)
+				{
+					response += "," + row.ProductID + "," + (row.LicenseEnd - Util.getServerSecond());
+				}
+				
+				response += "," + Random.getString(16, 32);
+			}
+			// randompadding,4,productID,randomPadding
+			else if (type == PacketType.productRequst)
+			{
+				
+			}
+		}
+		catch (Exception e)
+		{
 			
-			out.write(packet);
+		}
+		
+	}
+	
+	//
+	// packet send and receive functions
+	//
+	public boolean sendPacket(String packet)
+	{
+		try
+		{
+			byte[] packetBytes = this.AesEncrypt(packet);
+			byte[] packetBlocks = this.AesEncrypt(packetBytes.length / 16 + "");
+			
+			this.out.write(packetBlocks);
+			this.out.write(packetBytes);
+			
 			return true;
 		}
 		catch (Exception e)
@@ -198,11 +294,20 @@ public class Client implements Runnable
 		}
 	}
 	
-	public byte[] receivePacket()
+	public String receivePacket()
 	{
 		try
 		{
-			return null;
+			byte[] size = new byte[16];
+			this.in.read(size);
+			size = this.AesDecrypt(size);
+			int packetLength = Integer.parseInt(new String(size));
+			
+			byte[] packetData = new byte[packetLength];
+			this.in.read(packetData);
+			
+			this.lastInteraction = Util.getServerSecond();
+			return new String(this.AesDecrypt(packetData));
 		}
 		catch (Exception e)
 		{
@@ -210,7 +315,7 @@ public class Client implements Runnable
 			return null;
 		}
 	}
-
+ 
 	//
 	// client specific encryption functions using session key+iv
 	//
