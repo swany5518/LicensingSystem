@@ -3,6 +3,8 @@ package server;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.ArrayList;
 
@@ -17,7 +19,8 @@ public class Client implements Runnable
 		register,
 		redeemKey,
 		getLicences,
-		productRequst
+		productRequst,
+		clientUpdate
 	}
 	private Socket socket;
 	private DataInputStream in;
@@ -66,6 +69,7 @@ public class Client implements Runnable
 		{
 			try
 			{
+				System.out.println("waiting for packet");
 				String packet = this.receivePacket();
 				if (packet == null)
 					this.terminate();
@@ -84,6 +88,7 @@ public class Client implements Runnable
 	{
 		try
 		{
+			System.out.println("terminating client");
 			this.in.close();
 			this.out.close();
 			this.socket.close();
@@ -176,7 +181,7 @@ public class Client implements Runnable
 			
 			// encrypt and send session token back, sending size first encrypted as well
 			byte[] tokenPacket = this.AesEncrypt((Random.getString(16, 32) + "," + this.sessionToken + "," + Random.getString(16, 32)));
-			System.out.println(tokenPacket.length);
+			
 			this.out.write(this.AesEncrypt(new String(tokenPacket.length + "")));
 			this.out.write(tokenPacket);
 			
@@ -194,6 +199,9 @@ public class Client implements Runnable
 				System.out.println("invalid handshake complete message");
 				return false;
 			}
+			
+			this.isInitialized = true;
+			
 			return true;
 		}
 		catch (Exception e)
@@ -259,8 +267,33 @@ public class Client implements Runnable
 				
 				response += "," + Random.getString(16, 32);
 			}
-			// randompadding,4,productID,randomPadding
+			// randompadding,4,sessiontoken,productID,fileHash,randomPadding
 			else if (type == PacketType.productRequst)
+			{
+				DatabaseActions.ProductRequestReturn rslt = DatabaseActions.requestProduct(this.clientID, segments[3]);
+				
+				if (rslt.result == DatabaseActions.ProductRequestResult.success)
+				{
+					String serverFileHash = Util.hashFileBytes(rslt.info);
+					// if the hash is the same, no update needed
+					if (serverFileHash.equals(segments[4]))
+					{
+						this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.secondsLeft + ",0," + Random.getString(16,  32));
+					}
+					// else we need to send the new/updated file
+					else
+					{
+						this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.secondsLeft + ",1," + Random.getString(16,  32));
+						byte[] fileBytes = Files.readAllBytes(Paths.get(rslt.info));
+						this.sendPacket(fileBytes);
+					}
+				}
+				else
+				{
+					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.info + Random.getString(16,  32));
+				}
+			}
+			else if (type == PacketType.clientUpdate)
 			{
 				
 			}
@@ -294,6 +327,25 @@ public class Client implements Runnable
 		}
 	}
 	
+	public boolean sendPacket(byte[] packet)
+	{
+		try
+		{
+			byte[] packetBytes = this.AesEncrypt(packet);
+			byte[] packetBlocks = this.AesEncrypt(packetBytes.length / 16 + "");
+			
+			this.out.write(packetBlocks);
+			this.out.write(packetBytes);
+			
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
 	public String receivePacket()
 	{
 		try
@@ -301,7 +353,7 @@ public class Client implements Runnable
 			byte[] size = new byte[16];
 			this.in.read(size);
 			size = this.AesDecrypt(size);
-			int packetLength = Integer.parseInt(new String(size));
+			int packetLength = Integer.parseInt(new String(size)) * 16;
 			
 			byte[] packetData = new byte[packetLength];
 			this.in.read(packetData);

@@ -140,35 +140,42 @@ namespace network
 
 	inline bool send_packet(std::string data)
 	{
-		std::cout << "sending: " << data << std::endl;
-		std::string packet_blocks = std::to_string(data.size());
-		while (packet_blocks.size() < 16)
-			packet_blocks += " ";
+		auto enc_data = crypto::aes_encrypt(data, session_aes_key, session_aes_iv);
+		auto size = crypto::aes_encrypt(std::to_string(enc_data.size() / 16), session_aes_key, session_aes_iv);
 
-		if (::send(sock, packet_blocks.c_str(), packet_blocks.size(), 0) == SOCKET_ERROR)
+		if (::send(sock, size.data(), size.size(), 0) == SOCKET_ERROR)
+		{
+			std::cout << "error sending packet size" << std::endl;
 			return false;
+		}
 
-		if (::send(sock, data.c_str(), data.size(), 0) == SOCKET_ERROR)
+		if (::send(sock, enc_data.data(), enc_data.size(), 0) == SOCKET_ERROR)
+		{
+			std::cout << "error sending packet" << std::endl;
 			return false;
+		}
 
 		return true;
 	}
 
-	inline char* receive_packet()
+	inline std::string receive_packet()
 	{
-		char packet_size_buf[16];
-		::recv(sock, packet_size_buf, 16, 0);
+		char packet_blocks_buffer[16];
+		if (::recv(sock, packet_blocks_buffer, 16, 0) == SOCKET_ERROR)
+		{
+			std::cout << "error sending size buffer" << std::endl;
+			return "error";
+		}
+		
+		size_t size = static_cast<size_t>(stoi(crypto::aes_decrypt(std::string(packet_blocks_buffer, 16), session_aes_key, session_aes_iv)) * 16);
+		auto packet_buffer = std::make_unique<char[]>(size);
 
-		auto str = std::string(packet_size_buf, 16);
+		if (::recv(sock, packet_buffer.get(), size, MSG_WAITALL) == SOCKET_ERROR)
+		{
+			std::cout << "error sending size buffer" << std::endl;
+			return "error";
+		}
 
-		str.erase(std::remove_if(str.begin(), str.end(), std::isspace), str.end());
-
-		int size = stoi(str);
-		char buf[1024];
-		::recv(sock, buf, size, 0);
-
-		std::cout << "server response encoded size: " << size << std::endl;
-		std::cout << base64::decode(std::string(buf, size)) << std::endl;
-
+		return crypto::aes_decrypt(std::string(packet_buffer.get(), size), session_aes_key, session_aes_iv);
 	}
 }

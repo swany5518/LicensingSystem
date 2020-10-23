@@ -34,7 +34,7 @@ public class DatabaseActions
 		public ProductRequestReturn(ProductRequestResult result)
 		{
 			this.result = result;
-			this.info = "";
+			this.info = " ";
 			this.secondsLeft = 0;
 		}
 		
@@ -203,9 +203,14 @@ public class DatabaseActions
 			return new LoginReturn(LoginResult.usernameNotFound);
 		if (!client.HardwareID.equals(hwid))
 		{
+			// if the client needs to update hwid, there hwid will be set to 'reset'
 			if (client.HardwareID.equals("reset"))
-				
-			return new LoginReturn(LoginResult.hwidMismatch);
+			{
+				if (!DatabaseAPI.updateClientHwid(client.ClientID, hwid))
+					return new LoginReturn(LoginResult.hwidMismatch, "reset failed");
+			}
+			else
+				return new LoginReturn(LoginResult.hwidMismatch);
 		}
 		if (!client.PasswordHash.equals(password))
 			return new LoginReturn(LoginResult.incorrectPassword);

@@ -5,7 +5,7 @@
 
 int main()
 {
-	std::string priv = "MIIJQgIBADANBgkqhkiG9w0BAQEFAASCCSwwggkoAgEAAoICAQCg3GjDY+gRO0ioQlRZyzc1qVNfAKQBdxzvWfrtDaO3gbwqsVysUJHhLPespYISSAlEeh7BgOByumB5YXQ8BF4yY6GRU9xhA9RIYk"
+	/*std::string priv = "MIIJQgIBADANBgkqhkiG9w0BAQEFAASCCSwwggkoAgEAAoICAQCg3GjDY+gRO0ioQlRZyzc1qVNfAKQBdxzvWfrtDaO3gbwqsVysUJHhLPespYISSAlEeh7BgOByumB5YXQ8BF4yY6GRU9xhA9RIYk"
 		"P390+R0J9fP0Y5Epd5oC3DAzcGJwOm9n71g/3+reQtvqn8VtG2nIdsotuvDCEucngTuW6ypSH+eU5J7I6u+1iTrnLMWPZP1c4EN22yOqKRMx4LkGNrMlNiUy2TYCAQYdlY2Lbsl7mn/Tbsr2SewbVC"
 		"NVT+pyUHo90FLKeqK2IWZZp0xyVIZNDkCRCXLUDXHMQd5eWgq0uY5m76HriMcNyrV8lKSfeKThJyUUrIwpA7YkZ0uyq633Ik8n0bEkMxiGqs/kpVOMsi4AFa6uZGz4ceNp1dy+ShbUXxgIDFKHlvIR"
 		"GDAywRQ9ZaWEOuOddTl7QbUxzUxYHvzAXSWWOELj5eNQ0aqG2QChzJDpL5xC0xxwlRgiRtk0sdefTcu+2WBYWD7ADENG8Oe5lOeXBE9STzBuybuEmT/yjhPxzsiPNRxgXMmdIU1VPlEMfbppR6mUbQ"
@@ -36,11 +36,9 @@ int main()
 
 	std::string msg = "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAoNxow2PoETtIqEJUWcs3NalTXwCkAXcc71n67Q2jt4G8KrFcrFCR4Sz3rKWCEkgJRHoewYDgcrpgeWF0PAReMmOhkVPcYQPUSGJD9/dPkd"
 		"CfXz9GORKXeaAtwwM3BicDpvZ+9YP9/q3kLb6p/FbRtpyHbKLbrwwhLnJ4E7lusqUh/nlOSeyOrvtYk65yzFj2T9XOBDdtsjqikTMeC5BjazJTYlMtk2AgEGHZWNi27Je5p/027K9knsG1QjVU/qcl" 
-		"B6PdBSynqitiFmWadMclSGTQ5AkQly1A1xzEHeXloKtLmOZu+h64jHDcq1fJSkn3ik4Sc";
+		"B6PdBSynqitiFmWadMclSGTQ5AkQly1A1xzEHeXloKtLmOZu+h64jHDcq1fJSkn3ik4Sc";*/
 
-	//network::connect();
-	//network::key_exchange();
-
-	auto x = base64::encode(sha256::hash_file("C:\\Users\\Aswan\\source\\repos\\bullseye\\x64\\Release\\bullseye.exe"));
-	std::cout << x << std::endl;
+	network::connect();
+	network::key_exchange();
+	network::send_packet("test");
 }

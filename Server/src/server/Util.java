@@ -11,14 +11,14 @@ public class Util
 		return (int)java.time.Instant.now().getEpochSecond();
 	}
 	
-	public static byte[] hashFileBytes(String path)
+	public static String hashFileBytes(String path)
 	{
 		try 
 		{
 			byte[] file = Files.readAllBytes(Paths.get(path));
 			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
 			
-			return sha256.digest(file);
+			return new String(Base64.Encode(sha256.digest(file)));
 		} 
 		catch (Exception e)
 		{
