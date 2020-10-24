@@ -20,7 +20,8 @@ public class Client implements Runnable
 		redeemKey,
 		getLicences,
 		productRequst,
-		clientUpdate
+		clientUpdate,
+		disconnect
 	}
 	private Socket socket;
 	private DataInputStream in;
@@ -92,6 +93,8 @@ public class Client implements Runnable
 			this.in.close();
 			this.out.close();
 			this.socket.close();
+			this.clientID = null;
+			this.username = null;
 			this.isInitialized = false;
 			this.isGarbage = true;
 		}
@@ -103,7 +106,6 @@ public class Client implements Runnable
 			return;
 		}
 	}
-	
 	//
 	// function that handles key exchange
 	//
@@ -210,7 +212,6 @@ public class Client implements Runnable
 			return false;
 		}
 	}
-	
 	//
 	// function to handle incoming packets, and respond
 	//
@@ -221,12 +222,14 @@ public class Client implements Runnable
 			System.out.println("Client sent: " + packet);
 			// all packets have randominpadding,type,sessiontoken,otherdata...
 			String[] segments = packet.split(",");
-			
-			PacketType type = PacketType.values()[Integer.parseInt(segments[1])];
-			if (!segments[2].equals(this.sessionToken))
+			if (segments.length < 3)
 				this.terminate();
 			
-			// randompadding,0,sessiontoken,username,password,hwid,randomPadding
+			PacketType type = PacketType.values()[Integer.parseInt(segments[2])];
+			if (!segments[1].equals(this.sessionToken))
+				this.terminate();
+			
+			// randompadding,sessiontoken,0,username,password,hwid,randomPadding
 			if (type == PacketType.login)
 			{
 				DatabaseActions.LoginReturn rslt = DatabaseActions.attemptLogin(segments[3], segments[4], segments[5]);
@@ -240,23 +243,26 @@ public class Client implements Runnable
 				else
 					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.info + "," + Random.getString(16,  32));
 			}
-			// randompadding,1,sessiontoken,username,password,hwid,productKey,randomPadding
+			// randompadding,sessiontoken,1,username,password,hwid,productKey,randomPadding
 			else if (type == PacketType.register)
 			{
 				DatabaseActions.RegisterResult rslt = DatabaseActions.attemptRegister(segments[3], segments[4], segments[5], segments[6], this.ipAddress);
 				
 				this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.ordinal() + "," + Random.getString(16,  32));
 			}
-			// randompadding,2,sessiontoken,key,randomPadding
+			// randompadding,sessiontoken,2,key,randomPadding
 			else if (type == PacketType.redeemKey)
 			{
 				DatabaseActions.RedeemResult rslt = DatabaseActions.attemptRedeem(this.clientID, segments[3]);
 				this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.ordinal() + "," + Random.getString(16,  32));
 			}
-			// randompadding,3,sessiontoken,hwid,randompadding
+			// randompadding,sessiontoken,3,hwid,randompadding
 			else if (type == PacketType.getLicences)
 			{
 				ArrayList<DatabaseAPI.LicenseRow> licenses = DatabaseActions.getActiveLicenses(this.clientID);
+				
+				if (licenses == null)
+					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + ",0," + Random.getString(16, 32));
 				
 				String response = Random.getString(16, 32) + "," + this.sessionToken + "," + licenses.size();
 				
@@ -266,8 +272,10 @@ public class Client implements Runnable
 				}
 				
 				response += "," + Random.getString(16, 32);
+				
+				this.sendPacket(response);
 			}
-			// randompadding,4,sessiontoken,productID,fileHash,randomPadding
+			// randompadding,sessiontoken,4,productID,fileHash,randomPadding
 			else if (type == PacketType.productRequst)
 			{
 				DatabaseActions.ProductRequestReturn rslt = DatabaseActions.requestProduct(this.clientID, segments[3]);
@@ -293,9 +301,14 @@ public class Client implements Runnable
 					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.info + Random.getString(16,  32));
 				}
 			}
+			// randompadding,sessiontoken,5,hwid,clientHash,randomPadding
 			else if (type == PacketType.clientUpdate)
 			{
 				
+			}
+			else if (type == PacketType.disconnect)
+			{
+				this.terminate();
 			}
 		}
 		catch (Exception e)
@@ -304,12 +317,12 @@ public class Client implements Runnable
 		}
 		
 	}
-	
 	//
 	// packet send and receive functions
 	//
 	public boolean sendPacket(String packet)
 	{
+		System.out.println("Sever sending: " + packet);
 		try
 		{
 			byte[] packetBytes = this.AesEncrypt(packet);
@@ -367,7 +380,6 @@ public class Client implements Runnable
 			return null;
 		}
 	}
- 
 	//
 	// client specific encryption functions using session key+iv
 	//

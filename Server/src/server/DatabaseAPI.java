@@ -699,6 +699,7 @@ public class DatabaseAPI
 			stmt.setString(1, update.ClientID);
 			stmt.setString(2, update.ProductID);
 			stmt.setInt(3, update.LicenseEnd);
+			stmt.setString(4, update.LicenseID);
 			
 			stmt.executeUpdate();
 		

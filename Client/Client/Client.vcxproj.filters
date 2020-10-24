@@ -13,25 +13,37 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\networking">
+      <UniqueIdentifier>{9e2196e2-ef19-4906-814b-6e6090fbcda7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\crypto">
+      <UniqueIdentifier>{16885076-b392-4081-8b58-1b05aa083754}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\utilities">
+      <UniqueIdentifier>{7c7155f0-7d6a-4873-b671-38401970b70a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="base64.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="crypto.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="network.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\networking</Filter>
     </ClInclude>
     <ClInclude Include="packet.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\networking</Filter>
     </ClInclude>
-    <ClInclude Include="rnd.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="crypto.hpp">
+      <Filter>Header Files\crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="base64.hpp">
+      <Filter>Header Files\crypto</Filter>
     </ClInclude>
     <ClInclude Include="sha256.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="rnd.hpp">
+      <Filter>Header Files\utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="products.hpp">
+      <Filter>Header Files\networking</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

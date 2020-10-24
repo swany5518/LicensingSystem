@@ -6,176 +6,413 @@
 #include <ws2tcpip.h>
 #include <cstdint>
 #include <string>
+#include <array>
 
 #include "packet.hpp"
+#include "products.hpp"
 
-namespace network
-{
 #define SERVER_PORT 5444
 #define SERVER_IP "127.0.0.1"
 
-	inline SOCKET sock;
-	inline std::string session_token;
-	inline std::string session_aes_key;
-	inline std::string session_aes_iv;
-	inline bool connected = false;
-
-	inline bool connect()
+namespace network
+{
+	class connection
 	{
-		WSAData data;
-		WORD ver = MAKEWORD(2, 2);
+	public:
+		connection() :
+			connected_(false)
+		{};
 
-		int wsResult = WSAStartup(ver, &data);
-
-		// create socket
-		sock = socket(AF_INET, SOCK_STREAM, 0);
-
-		// fill in a hint structure
-		sockaddr_in hint;
-		hint.sin_family = AF_INET;
-		hint.sin_port = htons(SERVER_PORT);
-		inet_pton(AF_INET, SERVER_IP, &hint.sin_addr);
-
-		// Connect to server
-		int connResult = connect(sock, (sockaddr*)&hint, sizeof(hint));
-
-		return connResult == 0;
-	}
-
-	inline bool key_exchange()
-	{
-		const std::string client_hello = "hello server";
-		if (::send(sock, client_hello.data(), client_hello.size(), 0) == SOCKET_ERROR)
+		bool connect()
 		{
-			std::cout << "client hello send failed" << std::endl;
-			return false;
-		}
+			WSAData data;
+			WORD ver = MAKEWORD(2, 2);
 
-		const auto public_key_buffer_size = 1024;
-		char public_key_buffer[public_key_buffer_size];
+			int wsResult = WSAStartup(ver, &data);
 
-		// check if recv fails or the server responded with an error
-		if (::recv(sock, public_key_buffer, public_key_buffer_size, 0) == SOCKET_ERROR || std::string(public_key_buffer, 6) == "error]")
-		{
-			std::cout << "error recieving server public key" << std::endl;
-			return false;
-		}
-		
-		int public_key_size = 0;
+			// create socket
+			this->sock_ = socket(AF_INET, SOCK_STREAM, 0);
 
-		// loop until delimiter is found
-		while (true)
-		{
-			// the public key packet delimiter is ]
-			if (public_key_buffer[public_key_size] == ']')
-				break;
+			// fill in a hint structure
+			sockaddr_in hint;
+			hint.sin_family = AF_INET;
+			hint.sin_port = htons(SERVER_PORT);
+			inet_pton(AF_INET, SERVER_IP, &hint.sin_addr);
 
-			if (public_key_size++ == public_key_buffer_size)
+			// Connect to server
+			int result = ::connect(this->sock_, (sockaddr*)&hint, sizeof(hint));
+
+			if (result != SOCKET_ERROR)
 			{
-				std::cout << "no delimiter found, or public key bigger than 1024" << std::endl;
+				this->connected_ = true;
+				return true;
+			}
+
+			return false;
+		}
+
+		bool key_exchange()
+		{
+			const std::string client_hello = "hello server";
+			if (::send(this->sock_, client_hello.data(), client_hello.size(), 0) == SOCKET_ERROR)
+			{
+				std::cout << "client hello send failed" << std::endl;
 				return false;
 			}
+
+			const auto public_key_buffer_size = 1024;
+			char public_key_buffer[public_key_buffer_size];
+
+			// check if recv fails or the server responded with an error
+			if (::recv(this->sock_, public_key_buffer, public_key_buffer_size, 0) == SOCKET_ERROR || std::string(public_key_buffer, 6) == "error]")
+			{
+				std::cout << "error recieving server public key" << std::endl;
+				return false;
+			}
+
+			int public_key_size = 0;
+
+			// loop until delimiter is found
+			while (true)
+			{
+				// the public key packet delimiter is ]
+				if (public_key_buffer[public_key_size] == ']')
+					break;
+
+				if (public_key_size++ == public_key_buffer_size)
+				{
+					std::cout << "no delimiter found, or public key bigger than 1024" << std::endl;
+					return false;
+				}
+			}
+
+			// create string from the public key buffer and size
+			std::string public_key(public_key_buffer, public_key_size);
+
+			// generate session aes key+iv
+			this->base64_aes_key_ = crypto::generate_base64_aes_key();
+			this->base64_aes_iv_ = crypto::generate_base64_aes_iv();
+
+			// place key and iv in string to send to server, encrypt, encode and add delimiter
+			std::string aes_info_packet = base64_aes_key_ + "," + base64_aes_iv_;
+			aes_info_packet = base64::encode(crypto::rsa_encrypt(aes_info_packet, public_key)) + "]";
+
+			if (::send(this->sock_, aes_info_packet.data(), aes_info_packet.size(), 0) == SOCKET_ERROR)
+			{
+				std::cout << "error sending key and iv to server" << std::endl;
+				return false;
+			}
+
+			// recieve size of token packet
+			char token_size_buffer[16];
+			if (::recv(this->sock_, token_size_buffer, 16, 0) == SOCKET_ERROR)
+			{
+				std::cout << "error receiving token packet size" << std::endl;
+				return false;
+			}
+
+			int token_size = stoi(crypto::aes_decrypt(std::string(token_size_buffer, 16), this->base64_aes_key_, this->base64_aes_iv_));
+			auto token_buffer = std::make_unique<char[]>(token_size);
+			if (::recv(this->sock_, token_buffer.get(), token_size, 0) == SOCKET_ERROR)
+			{
+				std::cout << "error receiving token packet" << std::endl;
+				return false;
+			}
+
+			// parse the token packet from its rnd padded data
+			std::string token_buffer_string(token_buffer.get(), token_size);
+
+			auto token_segments = packet::split_packet(crypto::aes_decrypt(token_buffer_string, base64_aes_key_, base64_aes_iv_));
+			if (token_segments.size() != 3 || token_segments[1].size() < 16 || token_segments[1].size() > 32)
+			{
+				std::cout << "error parsing token packet" << std::endl;
+				return false;
+			}
+			this->token_ = token_segments[1];
+
+			// send server that handshake is complete
+			std::string complete_packet = rnd::alphanumeric(rnd::_int(16, 32)) + "," + "handshake success," + this->token_ + "," + rnd::alphanumeric(rnd::_int(16, 32));
+			complete_packet = crypto::aes_encrypt(complete_packet, this->base64_aes_key_, this->base64_aes_iv_);
+			std::string complete_size = crypto::aes_encrypt(std::to_string(complete_packet.size()), this->base64_aes_key_, this->base64_aes_iv_);
+
+			// send size of handshake complete packet
+			if (::send(this->sock_, complete_size.data(), complete_size.size(), 0) == SOCKET_ERROR)
+			{
+				std::cout << "error sending handshake complete size" << std::endl;
+				return false;
+			}
+
+			// send handshake complete packet
+			if (::send(this->sock_, complete_packet.data(), complete_packet.size(), 0) == SOCKET_ERROR)
+			{
+				std::cout << "error sending handshake complete packet" << std::endl;
+				return false;
+			}
+
+			return true;
 		}
-		
-		// create string from the public key buffer and size
-		std::string public_key(public_key_buffer, public_key_size);
 
-		// generate session aes key+iv
-		session_aes_key = crypto::generate_base64_aes_key();
-		session_aes_iv = crypto::generate_base64_aes_iv();
-
-		// place key and iv in string to send to server, encrypt, encode and add delimiter
-		std::string aes_info_packet = session_aes_key + "," + session_aes_iv;
-		aes_info_packet = base64::encode(crypto::rsa_encrypt(aes_info_packet, public_key)) + "]";
-
-		if (::send(sock, aes_info_packet.data(), aes_info_packet.size(), 0) == SOCKET_ERROR)
+		bool send_packet(const std::string& data)
 		{
-			std::cout << "error sending key and iv to server" << std::endl;
+			auto enc_data = crypto::aes_encrypt(data, this->base64_aes_key_, this->base64_aes_iv_);
+			auto size = crypto::aes_encrypt(std::to_string(enc_data.size() / 16), this->base64_aes_key_, this->base64_aes_iv_);
+
+			if (::send(this->sock_, size.data(), size.size(), 0) == SOCKET_ERROR)
+			{
+				std::cout << "error sending packet size" << std::endl;
+				return false;
+			}
+
+			if (::send(this->sock_, enc_data.data(), enc_data.size(), 0) == SOCKET_ERROR)
+			{
+				std::cout << "error sending packet" << std::endl;
+				return false;
+			}
+
+			return true;
+		}
+
+		std::string receive_packet()
+		{
+			char packet_blocks_buffer[16];
+			if (::recv(this->sock_, packet_blocks_buffer, 16, 0) == SOCKET_ERROR)
+			{
+				std::cout << "error sending size buffer" << std::endl;
+				return "error";
+			}
+
+			size_t size = static_cast<size_t>(stoi(crypto::aes_decrypt(std::string(packet_blocks_buffer, 16), this->base64_aes_key_, this->base64_aes_iv_)) * 16);
+			auto packet_buffer = std::make_unique<char[]>(size);
+
+			if (::recv(this->sock_, packet_buffer.get(), size, MSG_WAITALL) == SOCKET_ERROR)
+			{
+				std::cout << "error sending size buffer" << std::endl;
+				return "error";
+			}
+
+			return crypto::aes_decrypt(std::string(packet_buffer.get(), size), this->base64_aes_key_, this->base64_aes_iv_);
+		}
+
+		std::string get_token()
+		{
+			return this->token_;
+		}
+
+		bool is_connected()
+		{
+			if (!this->connected_)
+				return false;
+
+			// check if server has timed us out
+			if (!this->send_packet(packet::heartbeat(this->token_)))
+			{
+				this->connected_ = false;
+				return false;
+			}
+			
+			auto response = packet::split_packet(this->receive_packet());
+			if (response.size() > 1 && response[1] == this->token_)
+			{
+				this->connected_ = true;
+				return true;
+			}
+			
 			return false;
 		}
-		
-		// recieve size of token packet
-		char token_size_buffer[16];
-		if (::recv(sock, token_size_buffer, 16, 0) == SOCKET_ERROR)
-		{
-			std::cout << "error receiving token packet size" << std::endl;
-			return false;
-		}
 
-		int token_size = stoi(crypto::aes_decrypt(std::string(token_size_buffer, 16), session_aes_key, session_aes_iv));
-		auto token_buffer = std::make_unique<char[]>(token_size);
-		if (::recv(sock, token_buffer.get(), token_size, 0) == SOCKET_ERROR)
+		void disconnect()
 		{
-			std::cout << "error receiving token packet" << std::endl;
-			return false;
+			this->sock_ = 0;
+			this->token_ = "";
+			this->base64_aes_key_ = "";
+			this->base64_aes_iv_ = "";
+			this->connected_ = false;
 		}
-		
-		// parse the token packet from its rnd padded data
-		std::string token_buffer_string(token_buffer.get(), token_size);
-		
-		auto token_segments = split_packet(crypto::aes_decrypt(token_buffer_string, session_aes_key, session_aes_iv));
-		if (token_segments.size() != 3 || token_segments[1].size() < 16 || token_segments[1].size() > 32)
-		{
-			std::cout << "error parsing token packet" << std::endl;
-		}
-		session_token = token_segments[1];
-
-		// send server that handshake is complete
-		std::string complete_packet = rnd::alphanumeric(rnd::_int(16, 32)) + "," + "handshake success," + session_token + "," + rnd::alphanumeric(rnd::_int(16, 32));
-		complete_packet = crypto::aes_encrypt(complete_packet, session_aes_key, session_aes_iv);
-		std::string complete_size = crypto::aes_encrypt(std::to_string(complete_packet.size()), session_aes_key, session_aes_iv);
-		
-		// send size of handshake complete packet
-		if (::send(sock, complete_size.data(), complete_size.size(), 0) == SOCKET_ERROR)
-		{
-			std::cout << "error sending handshake complete size" << std::endl;
-		}
-
-		// send handshake complete packet
-		if (::send(sock, complete_packet.data(), complete_packet.size(), 0) == SOCKET_ERROR)
-		{
-			std::cout << "error sending handshake complete packet" << std::endl;
-		}
-	}
-
-	inline bool send_packet(std::string data)
+private:
+		SOCKET sock_;
+		std::string token_;
+		std::string base64_aes_key_;
+		std::string base64_aes_iv_;
+		bool connected_;
+	};
+	//
+	// network api for use by the client and gui
+	//
+	namespace api
 	{
-		auto enc_data = crypto::aes_encrypt(data, session_aes_key, session_aes_iv);
-		auto size = crypto::aes_encrypt(std::to_string(enc_data.size() / 16), session_aes_key, session_aes_iv);
-
-		if (::send(sock, size.data(), size.size(), 0) == SOCKET_ERROR)
+		struct result
 		{
-			std::cout << "error sending packet size" << std::endl;
-			return false;
-		}
+			bool result;
+			std::string msg;
+		};
 
-		if (::send(sock, enc_data.data(), enc_data.size(), 0) == SOCKET_ERROR)
-		{
-			std::cout << "error sending packet" << std::endl;
-			return false;
-		}
-
-		return true;
-	}
-
-	inline std::string receive_packet()
-	{
-		char packet_blocks_buffer[16];
-		if (::recv(sock, packet_blocks_buffer, 16, 0) == SOCKET_ERROR)
-		{
-			std::cout << "error sending size buffer" << std::endl;
-			return "error";
-		}
+		inline connection socket{};
+		inline std::string username;
+		inline std::string password;
+		inline std::string hwid;
+		inline std::string product_key;
+		inline std::vector<products::product> product_list{};
 		
-		size_t size = static_cast<size_t>(stoi(crypto::aes_decrypt(std::string(packet_blocks_buffer, 16), session_aes_key, session_aes_iv)) * 16);
-		auto packet_buffer = std::make_unique<char[]>(size);
-
-		if (::recv(sock, packet_buffer.get(), size, MSG_WAITALL) == SOCKET_ERROR)
+		inline result attempt_login()
 		{
-			std::cout << "error sending size buffer" << std::endl;
-			return "error";
+			// make sure we are connected
+			if (!socket.is_connected())
+			{
+				if (!socket.connect())
+					return { false, "failed to connect" };
+
+				if (!socket.key_exchange())
+					return { false, "failed to initialize connection" };
+			}
+			
+			if (!socket.send_packet(packet::login(socket.get_token(), username, password, hwid)))
+				return { false, "failed to login" };
+
+			// rndpad,token,rslt_code,info,rndpad
+			const auto response = packet::split_packet(socket.receive_packet());
+
+			if (response.size() != 5 || response[1] != socket.get_token())
+				return { false, "failed to complete login" };
+
+			const std::array<std::string, 8> login_codes = 
+			{ 
+				"success", 
+				"invalid username",
+				"invalid password",
+				"invalid username",
+				"incorrect password",
+				"hwid mismatch",
+				"banned",
+				"unknown error"
+			};
+			
+			if (response[2] == "0")
+				return { true, "" };
+
+			if (response[2] == "5")
+				return { false, "banned: " + response[3] };
+
+			return { false, login_codes[stoi(response[3])] };
 		}
 
-		return crypto::aes_decrypt(std::string(packet_buffer.get(), size), session_aes_key, session_aes_iv);
+		inline result attempt_register()
+		{
+			// make sure we are connected
+			if (!socket.is_connected())
+			{
+				if (!socket.connect())
+					return { false, "failed to connect" };
+
+				if (!socket.key_exchange())
+					return { false, "failed to initialize connection" };
+			}
+
+			if (!socket.send_packet(packet::_register(socket.get_token(), username, password, hwid, product_key)))
+				return { false, "failed to register" };
+
+			// rndpad,token,code,info,rndpad
+			const auto response = packet::split_packet(socket.receive_packet());
+
+			if (response.size() != 5 || response[1] != socket.get_token())
+				return { false, "failed to recieve register response" };
+
+			if (response[2] == "0")
+				return { true, "" };
+
+			const std::array<std::string, 7> register_codes =
+			{
+				"success",
+				"invalid username",
+				"invalid password",
+				"invalid product key",
+				"hwid already has account",
+				"username not available",
+				"unknown error"
+			};
+		
+			return { false, register_codes[stoi(response[2])] };
+		}
+
+		inline result attempt_redeem()
+		{
+			// make sure we are connected
+			if (!socket.is_connected())
+			{
+				if (!socket.connect())
+					return { false, "failed to connect" };
+
+				if (!socket.key_exchange())
+					return { false, "failed to initialize connection" };
+			}
+
+			if (!socket.send_packet(packet::redeem_key(socket.get_token(), product_key)))
+				return { false, "error redeeming key" };
+
+			// rndpad,token,code,rndpad
+			const auto response = packet::split_packet(socket.receive_packet());
+
+			if (response.size() != 5 || response[1] != socket.get_token())
+				return { false, "failed to recieve register response" };
+
+			if (response[2] == "0")
+				return { true, "" };
+
+			const std::array<std::string, 3> redeem_codes =
+			{
+				"success",
+				"invalid key",
+				"unknown error"
+			};
+		
+			return { false, redeem_codes[stoi(response[2])] };
+		}
+
+		inline result get_licenses()
+		{
+			// make sure we are connected
+			if (!socket.is_connected())
+			{
+				if (!socket.connect())
+					return { false, "failed to connect" };
+
+				if (!socket.key_exchange())
+					return { false, "failed to initialize connection" };
+			}
+
+			if (!socket.send_packet(packet::get_licenses(socket.get_token(), hwid)))
+				return { false, "error redeeming key" };
+
+			// rndpad,token,code,number_of_products,product_id,time_remaining...
+			const auto response = packet::split_packet(socket.receive_packet());
+
+			if (response.size() < 4 || response[1] != socket.get_token())
+				return { false, "failed to recieve register response" };
+
+			const auto product_count = stoi(response[2]);
+
+			for (auto i = 0u; i < product_count; ++i)
+			{
+				product_list.emplace_back(); //left off here, need a map of product id-> name
+			}
+
+			const std::array<std::string, 3> redeem_codes =
+			{
+				"success",
+				"invalid key",
+				"unknown error"
+			};
+
+			return { false, redeem_codes[stoi(response[2])] };
+		}
+
+		inline void request_product()
+		{
+
+		}
+
+		inline void disconnect()
+		{
+
+		}
 	}
 }

@@ -160,6 +160,7 @@
     <ClInclude Include="crypto.hpp" />
     <ClInclude Include="network.hpp" />
     <ClInclude Include="packet.hpp" />
+    <ClInclude Include="products.hpp" />
     <ClInclude Include="rnd.hpp" />
     <ClInclude Include="sha256.hpp" />
   </ItemGroup>

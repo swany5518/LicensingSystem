@@ -38,7 +38,26 @@ int main()
 		"CfXz9GORKXeaAtwwM3BicDpvZ+9YP9/q3kLb6p/FbRtpyHbKLbrwwhLnJ4E7lusqUh/nlOSeyOrvtYk65yzFj2T9XOBDdtsjqikTMeC5BjazJTYlMtk2AgEGHZWNi27Je5p/027K9knsG1QjVU/qcl" 
 		"B6PdBSynqitiFmWadMclSGTQ5AkQly1A1xzEHeXloKtLmOZu+h64jHDcq1fJSkn3ik4Sc";*/
 
+	std::string hwid = "dddddddd-dddd-dddd-dddd-dddddddddddd";
+	std::string un = "prismm";
+	std::string pw = "password";
+
+
 	network::connect();
 	network::key_exchange();
-	network::send_packet("test");
+	network::send_packet(network::packet::login(network::session_token, un, pw, hwid));
+	auto pckt = network::receive_packet();
+	std::cout << "server sent: " << pckt << std::endl;
+
+	network::send_packet(network::packet::redeem_key(network::session_token, "7frp0xcG-tcYA-V8DQ-fEnL-iqFNg2QD43An"));
+	pckt = network::receive_packet();
+
+	std::cout << "server sent: " << pckt << std::endl;
+	
+
+	network::send_packet(network::packet::get_licenses(network::session_token, hwid));
+	pckt = network::receive_packet();
+
+	std::cout << "server sent: " << pckt << std::endl;
+	system("pause");
 }
