@@ -693,4 +693,11 @@ namespace widgets
 
 		return false;
 	}
+
+	inline bool text_entry_hint(const std::string& hint, const ImVec2& top_left, const ImVec2& size, std::string& buf)
+	{
+		ImGui::SetCursorPos(top_left);
+		ImGui::SetNextItemWidth(size.x);
+		ImGui::InputTextWithHint(("##" + hint).c_str(), hint.c_str(), buf.data(), buf.size());
+	}
 }

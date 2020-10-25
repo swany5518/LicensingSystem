@@ -259,16 +259,17 @@ public class Client implements Runnable
 			// randompadding,sessiontoken,3,hwid,randompadding
 			else if (type == PacketType.getLicences)
 			{
+			
 				ArrayList<DatabaseActions.LicensesReturn> licenses = DatabaseActions.getActiveLicenses(this.clientID);
-				
+			
 				if (licenses == null)
 					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + ",0," + Random.getString(16, 32));
-				
+		
 				String response = Random.getString(16, 32) + "," + this.sessionToken + "," + licenses.size();
 				
 				for (DatabaseActions.LicensesReturn row : licenses)
 				{
-					response += "," + row.productID + "," + row.productName + "," + row.secondsLeft;
+					response += "," + row.productID + "," + row.productName + "," + row.status + "," + row.secondsLeft;
 				}
 				
 				response += "," + Random.getString(16, 32);
@@ -279,15 +280,17 @@ public class Client implements Runnable
 			else if (type == PacketType.productRequst)
 			{
 				DatabaseActions.ProductRequestReturn rslt = DatabaseActions.requestProduct(this.clientID, segments[3]);
-				
+
 				if (rslt.result == DatabaseActions.ProductRequestResult.success)
 				{
+
 					String serverFileHash = Util.hashFileBytes(rslt.info);
 					// if the hash is the same, no update needed
 					if (serverFileHash.equals(segments[4]))
 					{
 						this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.secondsLeft + ",0," + Random.getString(16,  32));
 					}
+					
 					// else we need to send the new/updated file
 					else
 					{

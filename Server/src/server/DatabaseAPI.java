@@ -41,7 +41,7 @@ public class DatabaseAPI
 			{
 				synchronized (connectionPool)
 				{
-					//System.out.print(Thread.currentThread() + " in getConnection SyncBlock. Pool size: " + connectionPool.size() + " ");
+					//System.out.print(Thread.currentThread() + " in getConnection SyncBlock. Pool size: " + connectionPool.size() + ", total connections: " + totalConnections + ", ");
 					if (connectionPool.size() == 0 && totalConnections < MAX_CONNECTIONS)
 					{
 						//System.out.print("No available connections, creating.\n");
@@ -84,7 +84,6 @@ public class DatabaseAPI
 			{
 				synchronized (connectionPool)
 				{
-					//System.out.print(Thread.currentThread() + " in relConnection() SyncBlock. Returning Connection\n");
 					connectionPool.add(con);
 					return;
 				}
@@ -111,11 +110,10 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+			
 			if (!rs.next())
 				return null;
-			
-			releaseConnection(con);
 			
 			return new ClientRow(rs.getString("ClientID"), username, rs.getString("PasswordHash"), rs.getString("HardwareID"), rs.getString("IpAddress"));
 		} 
@@ -138,11 +136,10 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 		
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+			
 			if (!rs.next())
 				return null;
-			
-			releaseConnection(con);
 			
 			return new ClientRow(rs.getString("ClientID"), rs.getString("Username"), rs.getString("PasswordHash"), hwid, rs.getString("IpAddress"));
 		} 
@@ -165,11 +162,10 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+			
 			if (!rs.next())
 				return null;
-			
-			releaseConnection(con);
 			
 			return new LicenseRow(LicenseID, rs.getString("ClientID"), rs.getString("ProductID"), rs.getInt("LicenseStart"), rs.getInt("LicenseEnd"));
 		} 
@@ -193,11 +189,10 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+			
 			if (!rs.next())
 				return null;
-			
-			releaseConnection(con);
 			
 			return new LicenseRow(rs.getString("LicenseID"), ClientID, ProductID, rs.getInt("LicenseStart"), rs.getInt("LicenseEnd"));
 		} 
@@ -220,6 +215,7 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			ArrayList<LicenseRow> list = new ArrayList<LicenseRow>();
+			releaseConnection(con);
 			
 			while (rs.next())
 			{
@@ -231,13 +227,10 @@ public class DatabaseAPI
 					removeLicense(row.LicenseID);
 			}
 			
-			releaseConnection(con);
-			
 			if (list.size() == 0)
 				return null;
 			
 			return list;
-			
 		} 
 		catch (Exception e) 
 		{
@@ -258,11 +251,10 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+			
 			if (!rs.next())
 				return null;
-			
-			releaseConnection(con);
 			
 			return new LicenseKeyRow(key, rs.getString("ProductID"), rs.getInt("LicenseDays"), rs.getString("Vendor"));
 		} 
@@ -285,12 +277,11 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+		
 			if (!rs.next())
 				return null;
-			
-			releaseConnection(con);
-			
+		
 			return new ProductRow(ProductID, rs.getString("ProductName"), rs.getString("Status"), rs.getString("ServerFilepath"));
 		} 
 		catch (Exception e) 
@@ -312,12 +303,11 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+			
 			if (!rs.next())
 				return null;
 		
-			releaseConnection(con);
-			
 			return new RedeemedKeyRow(key, rs.getString("ClientID"), rs.getString("ProductID"), rs.getInt("LicenseDays"), 
 					rs.getString("Vendor"), rs.getInt("RedemptionTime"));
 		} 
@@ -340,12 +330,11 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+			
 			if (!rs.next())
 				return null;
 		
-			releaseConnection(con);
-			
 			return new RestrictionsRow(RestrictionID, rs.getString("ClientID"), rs.getString("ProductID"), 
 					rs.getInt("RestrictionStart"), rs.getInt("RestrictionEnd"), rs.getString("Reason"));
 		} 
@@ -367,6 +356,8 @@ public class DatabaseAPI
 			stmt.setString(1, ClientID);
 			ResultSet rs = stmt.executeQuery();
 			
+			releaseConnection(con);
+			
 			ArrayList<RestrictionsRow> list = new ArrayList<RestrictionsRow>();
 			
 			while (rs.next())
@@ -379,8 +370,6 @@ public class DatabaseAPI
 					removeRestriction(row.RestrictionID);	
 			}
 		
-			releaseConnection(con);
-			
 			if (list.size() == 0)
 				return null;
 			
@@ -405,11 +394,10 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+			
 			if (!rs.next())
 				return null;
-		
-			releaseConnection(con);
 			
 			return new RestrictionsRow(rs.getString("RestrictionID"), ClientID, rs.getString("ProductID"), 
 					rs.getInt("RestrictionStart"), rs.getInt("RestrictionEnd"), rs.getString("Reason"));
@@ -434,12 +422,11 @@ public class DatabaseAPI
 			
 			ResultSet rs = stmt.executeQuery();
 			
-			// if rs.next() returns false, no results
+			releaseConnection(con);
+			
 			if (!rs.next())
 				return null;
 		
-			releaseConnection(con);
-			
 			return new RestrictionsRow(rs.getString("RestrictionID"), ClientID, ProductID, 
 					rs.getInt("RestrictionStart"), rs.getInt("RestrictionEnd"), rs.getString("Reason"));
 		} 

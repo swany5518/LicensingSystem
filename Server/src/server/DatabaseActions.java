@@ -57,12 +57,14 @@ public class DatabaseActions
 	{
 		String productID;
 		String productName;
+		String status;
 		int secondsLeft;
 		
-		public LicensesReturn(String productID, String productName, int secondsLeft)
+		public LicensesReturn(String productID, String productName, String status, int secondsLeft)
 		{
 			this.productID = productID;
 			this.productName = productName;
+			this.status = status;
 			this.secondsLeft = secondsLeft;
 		}
 	}
@@ -243,7 +245,7 @@ public class DatabaseActions
 		ArrayList<DatabaseAPI.LicenseRow> licenses = DatabaseAPI.getLicenses(ClientID);
 		if (licenses == null)
 			return null;
-		
+
 		ArrayList<DatabaseAPI.RestrictionsRow> restrictions = DatabaseAPI.getRestrictions(ClientID);
 		if (restrictions != null)
 		{
@@ -262,18 +264,18 @@ public class DatabaseActions
 						it.remove();	
 			}
 		}
-		
+
 		if (licenses.size() == 0)
 			return null;
-		
+
 		ArrayList<LicensesReturn> ret = new ArrayList<LicensesReturn>();
-		
+
 		for (DatabaseAPI.LicenseRow row : licenses)
 		{
 			DatabaseAPI.ProductRow pr = DatabaseAPI.getProduct(row.ProductID);
-			ret.add(new LicensesReturn(row.ProductID, pr.ProductName, row.LicenseEnd - Util.getServerSecond()));
+			ret.add(new LicensesReturn(row.ProductID, pr == null ? "error" : pr.ProductName, pr == null ? "unknown" : pr.Status, row.LicenseEnd - Util.getServerSecond()));
 		}
-		
+
 		return ret;
 	}
 	

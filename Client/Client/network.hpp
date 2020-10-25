@@ -8,6 +8,7 @@
 #include <string>
 #include <array>
 #include <filesystem>
+#include <algorithm>
 
 #include "packet.hpp"
 #include "products.hpp"
@@ -157,6 +158,7 @@ namespace network
 
 		bool send_packet(const std::string& data)
 		{
+			std::cout << "client sending: " << data << std::endl;
 			auto enc_data = crypto::aes_encrypt(data, this->base64_aes_key_, this->base64_aes_iv_);
 			auto size = crypto::aes_encrypt(std::to_string(enc_data.size() / 16), this->base64_aes_key_, this->base64_aes_iv_);
 
@@ -193,7 +195,9 @@ namespace network
 				return "error";
 			}
 
-			return crypto::aes_decrypt(std::string(packet_buffer.get(), size), this->base64_aes_key_, this->base64_aes_iv_);
+			auto rsp = crypto::aes_decrypt(std::string(packet_buffer.get(), size), this->base64_aes_key_, this->base64_aes_iv_);
+			std::cout << "server sent: " << rsp << std::endl;
+			return rsp;
 		}
 
 		std::string get_token()
@@ -252,7 +256,7 @@ private:
 		inline connection socket{};
 		inline std::string username;
 		inline std::string password;
-		inline std::string hwid;
+		inline std::string hwid = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 		inline std::string product_key;
 
 		inline std::vector<products::product> product_list{};
@@ -298,7 +302,7 @@ private:
 			if (response[2] == "5")
 				return { false, "banned: " + response[3] };
 
-			return { false, login_codes[stoi(response[3])] };
+			return { false, login_codes[stoi(response[2])] };
 		}
 
 		inline result attempt_register()
@@ -319,7 +323,7 @@ private:
 			// rndpad,token,code,info,rndpad
 			const auto response = packet::split_packet(socket.receive_packet());
 
-			if (response.size() != 5 || response[1] != socket.get_token())
+			if (response.size() < 4 || response[1] != socket.get_token())
 				return { false, "failed to recieve register response" };
 
 			if (response[2] == "0")
@@ -358,7 +362,7 @@ private:
 			const auto response = packet::split_packet(socket.receive_packet());
 
 			if (response.size() != 5 || response[1] != socket.get_token())
-				return { false, "failed to recieve register response" };
+				return { false, "failed to recieve redeem response" };
 
 			if (response[2] == "0")
 				return { true, "" };
@@ -386,18 +390,18 @@ private:
 			}
 
 			if (!socket.send_packet(packet::get_licenses(socket.get_token(), hwid)))
-				return { false, "error redeeming key" };
+				return { false, "error getting products" };
 
 			// rndpad,token,number_of_products,product_id,product_name,time_remaining...
 			const auto response = packet::split_packet(socket.receive_packet());
 
 			if (response.size() < 4 || response[1] != socket.get_token())
-				return { false, "failed to recieve register response" };
+				return { false, "failed to receive products" };
 
 			const auto product_count = stoi(response[2]);
 
 			for (auto i = 0u; i < product_count; ++i)
-				product_list.emplace_back(response[3 + i * 3], response[4 + i * 3], stoi(response[5 + i * 3]), false);
+				product_list.emplace_back(response[3 + i * 4], response[4 + i * 4], response[5], stoi(response[6 + i * 4]), false);
 			
 			return { true, ""};
 		}
@@ -486,6 +490,89 @@ private:
 			}
 
 			socket.send_packet(packet::disconnect(socket.get_token()));
+		}
+	
+		// variables and loop that work with the gui
+		inline bool network_thread_should_run = false;
+		inline bool should_login = false;
+		inline bool should_register = false;
+		inline bool has_logged_in = false;
+		inline bool just_logged_in = false;
+		
+		inline std::string popup_message;
+		inline bool show_popup_message = false;
+		inline bool show_popup_progression = false;
+		inline bool allow_popup_close = false;
+
+		inline void update_popup(const std::string& msg, bool progression, bool allow_close)
+		{
+			show_popup_message = false;
+			popup_message = msg;
+			show_popup_progression = progression;
+			allow_popup_close = allow_close;
+			show_popup_message = true;
+		}
+
+		inline void network_api_thread()
+		{
+			network_thread_should_run = true;
+
+			while (network_thread_should_run)
+			{
+				if (should_login)
+				{
+					should_login = false;
+
+					update_popup("logging in", true, false);
+
+					username.erase(std::remove(username.begin(), username.end(), '\0'), username.end());
+					password.erase(std::remove(password.begin(), password.end(), '\0'), password.end());
+
+					auto rslt = attempt_login();
+
+					if (rslt.result)
+					{
+						auto license_rslt = get_licenses();
+
+						if (license_rslt.result)
+						{
+							std::cout << "get_licenses() success" << std::endl;
+							has_logged_in = true;
+							just_logged_in = true;
+							show_popup_message = false;
+						}
+						else
+							update_popup(rslt.msg, false, true);
+					}
+					else
+					{
+						std::cout << "updating pop" << std::endl;
+						update_popup(rslt.msg, false, true);
+					}
+						
+				}
+				if (should_register)
+				{
+					should_register = false;
+					update_popup("registering account", true, false);
+
+					username.erase(std::remove(username.begin(), username.end(), '\0'), username.end());
+					password.erase(std::remove(password.begin(), password.end(), '\0'), password.end());
+					product_key.erase(std::remove(product_key.begin(), product_key.end(), '\0'), product_key.end());
+
+					auto rslt = attempt_register();
+
+					if (rslt.result)
+					{
+						should_login = true;
+						show_popup_message = false;
+					}
+					else
+						update_popup(rslt.msg, false, true);
+				}
+
+				Sleep(100);
+			}
 		}
 	}
 }

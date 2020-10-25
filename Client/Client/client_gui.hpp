@@ -6,6 +6,7 @@
 #include "imgui/imgui_impl_win32.h"
 #include "imgui/imgui_impl_dx11.h"
 #include "imgui/fonts.h"
+#include "imgui/custom_widgets.h"
 
 #include <d3d11.h>
 #define DIRECTINPUT_VERSION 0x0800
@@ -49,7 +50,7 @@ namespace client_gui
 
     // window size and location
     static bool show_login = true;
-    static ImVec2 login_size{ 500, 500 };
+    static ImVec2 login_size{ 400, 150 };
     static ImVec2 menu_size{ 500, 500 };
     static int middle_x = ::GetSystemMetrics(SM_CXSCREEN) / 2;
     static int middle_y = ::GetSystemMetrics(SM_CYSCREEN) / 2;
@@ -139,13 +140,18 @@ namespace client_gui
 
         // load fonts we want to use
         ImFont* font_crux = io.Fonts->AddFontFromMemoryTTF(fonts::coders_crux.data(), fonts::coders_crux.size(), 12.0f);
-        ImFont* font_crux_small = io.Fonts->AddFontFromMemoryTTF(fonts::coders_crux.data(), fonts::coders_crux.size(), 11.0f);
+        ImFont* font_crux_small = io.Fonts->AddFontFromMemoryTTF(fonts::coders_crux.data(), fonts::coders_crux.size(), 11.75f);
+        ImFont* font_crux_small_small = io.Fonts->AddFontFromMemoryTTF(fonts::coders_crux.data(), fonts::coders_crux.size(), 10.0f);
         ImFont* font_crux_big = io.Fonts->AddFontFromMemoryTTF(fonts::coders_crux.data(), fonts::coders_crux.size(), 20.0f);
         ImFont* block_font = io.Fonts->AddFontFromMemoryTTF(fonts::blocks.data(), fonts::blocks.size(), 54.0f);
+        widgets::font_normal = font_crux;
+        widgets::font_small = font_crux_small;
+        widgets::font_small_small = font_crux_small_small;
 
         // setup platform/renderer bindings
         ImGui_ImplWin32_Init(hwnd);
         ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+
         // disable alt enter fullscreen toggle
         g_pFactory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
 
@@ -164,11 +170,19 @@ namespace client_gui
         const ImVec4 moneygGreen = ImVec4(.0f, .699f, .217f, 1.0f);
         const ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+        // conditional rendering variables
+        static bool login_page_show_register = false;
+
+        // text entry buffers
+        std::string username_buffer; username_buffer.resize(24);
+        std::string password_buffer; password_buffer.resize(24);
+        std::string key_buffer; key_buffer.resize(38);
+
         // easy macro for changing cursor to hand on hovered items
 #define HC if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand)
         
         // window flags for imgui windows
-        ImGuiWindowFlags imgui_wnd_flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar;
+        ImGuiWindowFlags imgui_wnd_flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar;
        
         // main render loop
         MSG msg;
@@ -182,14 +196,98 @@ namespace client_gui
                 continue;
             }
 
+            // if they just logged in, we need to resize window
+            if (network::api::just_logged_in)
+            {
+                network::api::just_logged_in = false;
+
+                ::RECT rect;
+                if (GetWindowRect(hwnd, &rect))
+                {
+                    int width = rect.right - rect.left;
+                    int height = rect.bottom - rect.top;
+                    SetWindowPos(hwnd, NULL, rect.left - (menu_size.x - width) / 2, rect.top - (menu_size.y - height) / 2, menu_size.x, menu_size.y, NULL);
+                }
+            }
+
             // Start the imgui frame
             ImGui_ImplDX11_NewFrame();
             ImGui_ImplWin32_NewFrame();
             ImGui::NewFrame();
             using namespace ImGui;
             {
-               Begin("window", 0, imgui_wnd_flags);
-               Text("test text");
+                // render login window
+                if (!network::api::has_logged_in)
+                {
+                    SetNextWindowPos({ 0, 0 });
+                    SetNextWindowSize(login_size);
+                    Begin("login window", 0, imgui_wnd_flags);
+
+                    if (widgets::title_bar("login window", true))
+                        break;
+                    if (widgets::shadow_button("login", { 3, 127 }, { 80, 20 }))
+                        login_page_show_register = false;
+                    if (widgets::shadow_button("register", { 85, 127 }, { 80, 20 }))
+                        login_page_show_register = true;
+
+                    if (widgets::shadow_button2("go", { 317, 127 }, { 80, 20 }))
+                    {
+                        network::api::username = username_buffer;
+                        network::api::password = password_buffer;
+
+                        if (!login_page_show_register)
+                            network::api::should_login = true;
+
+                        else
+                        {
+                            network::api::product_key = key_buffer;
+                            network::api::should_register = true;
+                        }
+                    };
+                    
+                    widgets::text_entry_hint("username", { 50, 50 }, { 200, 50}, username_buffer);
+                    widgets::text_entry_hint("pasword", { 50, 70 }, { 200, 50 }, password_buffer);
+                    if (login_page_show_register)
+                        widgets::text_entry_hint("product key", { 50, 90 }, { 300, 50 }, key_buffer);
+                }
+                // render product window
+                else if (network::api::has_logged_in)
+                {
+                    SetNextWindowPos({ 0, 0 });
+                    SetNextWindowSize(menu_size);
+                    Begin("product window", 0, imgui_wnd_flags);
+
+                    if (widgets::title_bar("welcome " + network::api::username, true))
+                        break;
+                }
+
+                if (network::api::show_popup_message)
+                    OpenPopup("##message_display");
+
+                SetNextWindowSize({300, 50});
+                if (BeginPopupModal("##message_display", 0, imgui_wnd_flags))
+                {
+                    if (network::api::show_popup_progression)
+                    {
+                        std::array<char, 4> spinner = { '/', '-', '\\', '|' };
+                        auto progress = spinner[std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count() / 100 % 4];
+                        SetCursorPos({10, 10});
+                        widgets::shadow_text(network::api::popup_message + " [" + progress + "]");
+                    }
+                    else if (network::api::allow_popup_close)
+                    {
+                        SetCursorPos({ 10, 10 });
+                        widgets::shadow_text(network::api::popup_message);
+                        if (widgets::shadow_button("close", { 250, 30 }, { 50, 20 }))
+                            network::api::show_popup_message = false; 
+                    }
+
+                    if (!network::api::show_popup_message)
+                        CloseCurrentPopup();
+
+                    EndPopup();
+                }
+               
                End();
             }
 
@@ -202,6 +300,9 @@ namespace client_gui
             // present with vsync (1, 0), present without vsync (0, 0)
             g_pSwapChain->Present(1, 0); 
         }
+
+        network::api::disconnect();
+        network::api::network_thread_should_run = false;
 
         // cleanup imgui
         ImGui_ImplDX11_Shutdown();
