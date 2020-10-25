@@ -21,6 +21,7 @@ public class Client implements Runnable
 		getLicences,
 		productRequst,
 		clientUpdate,
+		heartbeat,
 		disconnect
 	}
 	private Socket socket;
@@ -53,7 +54,6 @@ public class Client implements Runnable
 			e.printStackTrace();
 		}
 	}
-	
 	//
 	// each client runs on separate thread
 	//
@@ -238,7 +238,7 @@ public class Client implements Runnable
 				if (rslt.result == DatabaseActions.LoginResult.success)
 				{
 					this.clientID = rslt.info;
-					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + ", ," + Random.getString(16,  32));
+					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + ",," + Random.getString(16,  32));
 				}
 				else
 					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.info + "," + Random.getString(16,  32));
@@ -259,16 +259,16 @@ public class Client implements Runnable
 			// randompadding,sessiontoken,3,hwid,randompadding
 			else if (type == PacketType.getLicences)
 			{
-				ArrayList<DatabaseAPI.LicenseRow> licenses = DatabaseActions.getActiveLicenses(this.clientID);
+				ArrayList<DatabaseActions.LicensesReturn> licenses = DatabaseActions.getActiveLicenses(this.clientID);
 				
 				if (licenses == null)
 					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + ",0," + Random.getString(16, 32));
 				
 				String response = Random.getString(16, 32) + "," + this.sessionToken + "," + licenses.size();
 				
-				for (DatabaseAPI.LicenseRow row : licenses)
+				for (DatabaseActions.LicensesReturn row : licenses)
 				{
-					response += "," + row.ProductID + "," + (row.LicenseEnd - Util.getServerSecond());
+					response += "," + row.productID + "," + row.productName + "," + row.secondsLeft;
 				}
 				
 				response += "," + Random.getString(16, 32);
@@ -298,13 +298,18 @@ public class Client implements Runnable
 				}
 				else
 				{
-					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.info + Random.getString(16,  32));
+					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + "," + rslt.info + ",," + Random.getString(16,  32));
 				}
 			}
 			// randompadding,sessiontoken,5,hwid,clientHash,randomPadding
 			else if (type == PacketType.clientUpdate)
 			{
 				
+			}
+			// randompadding,sessiontoken,6,randomPadding
+			else if (type == PacketType.heartbeat)
+			{
+				this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + ",0," + Random.getString(16, 32));
 			}
 			else if (type == PacketType.disconnect)
 			{

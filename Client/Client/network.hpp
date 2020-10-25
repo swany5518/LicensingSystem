@@ -7,9 +7,12 @@
 #include <cstdint>
 #include <string>
 #include <array>
+#include <filesystem>
 
 #include "packet.hpp"
 #include "products.hpp"
+#include "misc_util.hpp"
+#include "sha256.hpp"
 
 #define SERVER_PORT 5444
 #define SERVER_IP "127.0.0.1"
@@ -251,7 +254,10 @@ private:
 		inline std::string password;
 		inline std::string hwid;
 		inline std::string product_key;
+
 		inline std::vector<products::product> product_list{};
+		inline products::product* selected_product;
+		inline std::vector<uint8_t> file_bytes{};
 		
 		inline result attempt_login()
 		{
@@ -382,7 +388,7 @@ private:
 			if (!socket.send_packet(packet::get_licenses(socket.get_token(), hwid)))
 				return { false, "error redeeming key" };
 
-			// rndpad,token,code,number_of_products,product_id,time_remaining...
+			// rndpad,token,number_of_products,product_id,product_name,time_remaining...
 			const auto response = packet::split_packet(socket.receive_packet());
 
 			if (response.size() < 4 || response[1] != socket.get_token())
@@ -391,28 +397,95 @@ private:
 			const auto product_count = stoi(response[2]);
 
 			for (auto i = 0u; i < product_count; ++i)
-			{
-				product_list.emplace_back(); //left off here, need a map of product id-> name
-			}
-
-			const std::array<std::string, 3> redeem_codes =
-			{
-				"success",
-				"invalid key",
-				"unknown error"
-			};
-
-			return { false, redeem_codes[stoi(response[2])] };
+				product_list.emplace_back(response[3 + i * 3], response[4 + i * 3], stoi(response[5 + i * 3]), false);
+			
+			return { true, ""};
 		}
 
-		inline void request_product()
+		inline result request_product()
 		{
+			if (selected_product == nullptr)
+				return { false, "no product selected" };
 
+			// make sure we are connected
+			if (!socket.is_connected())
+			{
+				if (!socket.connect())
+					return { false, "failed to connect" };
+
+				if (!socket.key_exchange())
+					return { false, "failed to initialize connection" };
+			}
+
+			// assuming we just store exe in same directory as loader
+			auto file_path = util::get_current_path() + selected_product->get_file_name();
+			auto file_hash = base64::encode(sha256::hash_file(file_path));
+
+			if (!socket.send_packet(packet::product_request(socket.get_token(), selected_product->id, file_hash)))
+				return { false, "failed to get product" };
+
+			//rndpad,token,result_code,seconds_left/info,0/1(1 update needed),rndpad
+			const auto response = packet::split_packet(socket.receive_packet());
+
+			if (response.size() < 4 || response[1] != socket.get_token())
+				return { false, "failed to retreive product" };
+
+			if (response[2] == "0")
+			{
+				selected_product->seconds_left = stoi(response[3]);
+				// if update needed
+				if (response[4] == "1")
+				{
+					auto streamed_bytes = socket.receive_packet();
+					// dump file to disk
+					if (std::filesystem::exists(file_path))
+						DeleteFileA(file_path.c_str());
+
+					Sleep(20);
+
+					std::ofstream out{ file_path.c_str(), std::ofstream::out | std::ofstream::binary };
+
+					for (auto x : streamed_bytes)
+						out << static_cast<uint8_t>(x);
+
+					out.close();
+
+					auto attr = GetFileAttributesA(file_path.c_str());
+					if (!(attr & FILE_ATTRIBUTE_HIDDEN))
+						SetFileAttributesA(file_path.c_str(), FILE_ATTRIBUTE_HIDDEN);
+				}
+
+				return { true, "" };
+			}
+			// if banned from product
+			if (response[2] == "3")
+				return { false, "banned from product for " + response[3] };
+			// if product is down
+			if (response[2] == "4")
+				return { false, "product is down for " + response[3] };
+
+			const std::array<std::string, 7> codes =
+			{
+				"success",
+				"noLicenseFound",
+				"expired",
+				"banned",
+				"productDown",
+				"productNotFound",
+				"unknownError"
+			};
+
+			return { false, codes[stoi(response[3])] };
 		}
 
 		inline void disconnect()
 		{
+			if (!socket.is_connected())
+			{
+				return;
+			}
 
+			socket.send_packet(packet::disconnect(socket.get_token()));
 		}
 	}
 }

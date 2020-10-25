@@ -53,6 +53,20 @@ public class DatabaseActions
 		}
 	}
 	
+	public static class LicensesReturn
+	{
+		String productID;
+		String productName;
+		int secondsLeft;
+		
+		public LicensesReturn(String productID, String productName, int secondsLeft)
+		{
+			this.productID = productID;
+			this.productName = productName;
+			this.secondsLeft = secondsLeft;
+		}
+	}
+	
 	public static enum RegisterResult
 	{
 		success,
@@ -224,34 +238,43 @@ public class DatabaseActions
 		return new LoginReturn(LoginResult.success, client.ClientID);
 	}
 	
-	public static ArrayList<DatabaseAPI.LicenseRow> getActiveLicenses(String ClientID)
+	public static ArrayList<LicensesReturn> getActiveLicenses(String ClientID)
 	{
 		ArrayList<DatabaseAPI.LicenseRow> licenses = DatabaseAPI.getLicenses(ClientID);
 		if (licenses == null)
 			return null;
+		
 		ArrayList<DatabaseAPI.RestrictionsRow> restrictions = DatabaseAPI.getRestrictions(ClientID);
-		if (restrictions == null)
-			return licenses;
-		
-		for (DatabaseAPI.RestrictionsRow restriction : restrictions)
-			if (restriction.ProductID.equals("all products"))
-				return null;
-		
-		// remove any restricted licenses
-		Iterator<DatabaseAPI.LicenseRow> it = licenses.iterator();
-		while (it.hasNext())
+		if (restrictions != null)
 		{
-			DatabaseAPI.LicenseRow license = it.next();
-			
 			for (DatabaseAPI.RestrictionsRow restriction : restrictions)
-				if (restriction.ProductID.equals(license.ProductID))
-					it.remove();	
+				if (restriction.ProductID.equals("all products"))
+					return null;
+			
+			// remove any restricted licenses
+			Iterator<DatabaseAPI.LicenseRow> it = licenses.iterator();
+			while (it.hasNext())
+			{
+				DatabaseAPI.LicenseRow license = it.next();
+				
+				for (DatabaseAPI.RestrictionsRow restriction : restrictions)
+					if (restriction.ProductID.equals(license.ProductID))
+						it.remove();	
+			}
 		}
 		
 		if (licenses.size() == 0)
 			return null;
 		
-		return licenses;
+		ArrayList<LicensesReturn> ret = new ArrayList<LicensesReturn>();
+		
+		for (DatabaseAPI.LicenseRow row : licenses)
+		{
+			DatabaseAPI.ProductRow pr = DatabaseAPI.getProduct(row.ProductID);
+			ret.add(new LicensesReturn(row.ProductID, pr.ProductName, row.LicenseEnd - Util.getServerSecond()));
+		}
+		
+		return ret;
 	}
 	
 	public static ProductRequestReturn requestProduct(String ClientID, String ProductID)

@@ -21,7 +21,7 @@ namespace sha256
 		CryptoPP::SHA256 hash;
 		hash.Update((CryptoPP::byte*)bytes.data(), bytes.size());
 		digest.resize(hash.DigestSize());
-		hash.Final((CryptoPP::byte*) &digest[0]);
+		hash.Final((CryptoPP::byte*)&digest[0]);
 
 		return digest;
 	}
@@ -33,7 +33,19 @@ namespace sha256
 		CryptoPP::SHA256 hash;
 		hash.Update((CryptoPP::byte*)file_bytes.data(), file_bytes.size());
 		digest.resize(hash.DigestSize());
-		hash.Final((CryptoPP::byte*) & digest[0]);
+		hash.Final((CryptoPP::byte*)&digest[0]);
+
+		return digest;
+	}
+
+	inline std::string hash_string(const std::string& str)
+	{
+		std::string digest;
+
+		CryptoPP::SHA256 hash;
+		hash.Update((CryptoPP::byte*)str.data(), str.size());
+		digest.resize(hash.DigestSize());
+		hash.Final((CryptoPP::byte*) &digest[0]);
 
 		return digest;
 	}
