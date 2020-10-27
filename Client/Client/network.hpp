@@ -16,7 +16,7 @@
 #include "sha256.hpp"
 
 #define SERVER_PORT 5444
-#define SERVER_IP "127.0.0.1"
+#define SERVER_IP "134.122.125.82"
 
 namespace network
 {
@@ -196,7 +196,8 @@ namespace network
 			}
 
 			auto rsp = crypto::aes_decrypt(std::string(packet_buffer.get(), size), this->base64_aes_key_, this->base64_aes_iv_);
-			std::cout << "server sent: " << rsp << std::endl;
+			if (rsp.size() < 1000)
+				std::cout << "server sent: " << rsp << std::endl;
 			return rsp;
 		}
 
@@ -422,7 +423,7 @@ private:
 			}
 
 			// assuming we just store exe in same directory as loader
-			auto file_path = util::get_current_path() + selected_product->get_file_name();
+			auto file_path = util::get_current_path() + selected_product->get_file_name() + ".exe";
 			auto file_hash = base64::encode(sha256::hash_file(file_path));
 
 			if (!socket.send_packet(packet::product_request(socket.get_token(), selected_product->id, file_hash)))
@@ -496,6 +497,7 @@ private:
 		inline bool network_thread_should_run = false;
 		inline bool should_login = false;
 		inline bool should_register = false;
+		inline bool should_request_product = false;
 		inline bool has_logged_in = false;
 		inline bool just_logged_in = false;
 		
@@ -569,6 +571,12 @@ private:
 					}
 					else
 						update_popup(rslt.msg, false, true);
+				}
+				if (should_request_product)
+				{
+					should_request_product = false;
+					selected_product = &product_list[0];
+					auto rslt = request_product();
 				}
 
 				Sleep(100);

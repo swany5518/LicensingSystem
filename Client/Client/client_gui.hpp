@@ -259,6 +259,9 @@ namespace client_gui
 
                     if (widgets::title_bar("welcome " + network::api::username, true))
                         break;
+
+                    if (widgets::shadow_button("launch", { 50,50 }, { 100,20 }))
+                        network::api::should_request_product = true;
                 }
 
                 if (network::api::show_popup_message)

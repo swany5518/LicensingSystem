@@ -9,6 +9,9 @@ namespace sha256
 {
 	inline std::string hash_file(const std::string& path)
 	{
+		if (!std::filesystem::exists(path))
+			return "0";
+
 		std::vector<uint8_t> bytes{};
 
 		std::ifstream in{ path.c_str(), std::ifstream::in | std::ifstream::binary };
