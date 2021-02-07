@@ -45,3 +45,8 @@ Client/x64/Release/Client.ipdb
 Client/x64/Release/Client.iobj
 Client/x64/Release/Client.exe
 *.idb
+Client/cryptopp840/x64/cryptlib/Debug/cryptlib.pch
+Client/cryptopp840/x64/cryptlib/Debug/cryptlib.vcxproj.FileListAbsolute.txt
+Client/cryptopp840/x64/cryptlib/Release/cryptlib.pch
+Client/cryptopp840/x64/Output/Debug/cryptlib.lib
+Client/cryptopp840/x64/Output/Release/cryptlib.lib
