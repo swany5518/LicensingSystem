@@ -699,5 +699,7 @@ namespace widgets
 		ImGui::SetCursorPos(top_left);
 		ImGui::SetNextItemWidth(size.x);
 		ImGui::InputTextWithHint(("##" + hint).c_str(), hint.c_str(), buf.data(), buf.size());
+
+		return false;
 	}
 }

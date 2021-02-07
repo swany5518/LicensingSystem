@@ -44,3 +44,4 @@ Client/x64/Release/Client.pdb
 Client/x64/Release/Client.ipdb
 Client/x64/Release/Client.iobj
 Client/x64/Release/Client.exe
+*.idb

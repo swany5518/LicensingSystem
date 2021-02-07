@@ -8,10 +8,10 @@
 
 int main()
 {
-	std::thread network{ network::api::network_api_thread };
+	//std::thread network{ network::api::network_api_thread };
 
 	client_gui::start();
 
-	network::api::network_thread_should_run = false;
-	network.join();
+	//network::api::network_thread_should_run = false;
+	//network.join();
 }

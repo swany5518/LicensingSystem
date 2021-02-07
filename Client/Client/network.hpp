@@ -16,7 +16,7 @@
 #include "sha256.hpp"
 
 #define SERVER_PORT 5444
-#define SERVER_IP "134.122.125.82"
+#define SERVER_IP "0.0.0.0"
 
 namespace network
 {
