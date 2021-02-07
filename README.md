@@ -12,6 +12,6 @@ Database can host N amount of products on the server and distribute them to clie
 Products are runtime protected so they cannot be ran without a valid license
 
 ### Status
-This project is not done yet.
+This project is not done yet.                                                                                                                                                      
 I am writing an ImGui menu for a demo.    
 I am currently writing a C++ UI library that I will add to this project for the UI once its complete
