@@ -46,6 +46,8 @@ void main_program_loop()
 		std::cout << "you have " << challenge_export.seconds_left - (runtime_challenge::get_system_second() - globals::startup_time) << " seconds remaining!" << std::endl;
 		Sleep(1000);
 	}
+
+	std::cout << "sorry, your license has expired" << std::endl;
 }
 
 int main()
@@ -55,8 +57,10 @@ int main()
 
 	for (auto i = 0u; i < 5; ++i)
 	{
-		if (true || runtime_challenge::get_challenge(globals::startup_time + i) == challenge_export.challenge || runtime_challenge::get_challenge(globals::startup_time - i) == challenge_export.challenge)
+		if (runtime_challenge::get_challenge(globals::startup_time + i) == challenge_export.challenge || runtime_challenge::get_challenge(globals::startup_time - i) == challenge_export.challenge)
 			main_program_loop();
 
+		if (i == 4)
+			std::cout << "you do not have access to this software" << std::endl;
 	}
 }
