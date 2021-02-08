@@ -500,6 +500,7 @@ private:
 		inline bool should_request_product = false;
 		inline bool has_logged_in = false;
 		inline bool just_logged_in = false;
+		inline bool remember_login = false;
 		
 		inline std::string popup_message;
 		inline bool show_popup_message = false;

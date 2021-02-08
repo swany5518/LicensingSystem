@@ -35,6 +35,50 @@ namespace client_gui
         }
     }
 
+    static void combo_box(const std::string& label, ImVec2 top_left, ImVec2 size)
+    {
+        auto previous_pos = ImGui::GetCursorPos();
+        auto wnd_pos = ImGui::GetWindowPos();
+        auto abs_top_left = top_left;
+        auto abs_bottom_right = ImVec2{top_left.x + size.x, top_left.y + size.y};
+        abs_top_left.offset(wnd_pos);
+        abs_bottom_right.offset(wnd_pos);
+
+        auto text_rect = ImGui::CalcTextSize(label.c_str());
+        auto draw_list = ImGui::GetWindowDrawList();
+
+        const int y_gap = 0;
+        const ImVec2 points[] =
+        {
+            {abs_top_left.x + 20, abs_top_left.y + y_gap},				// top right + text start
+            {abs_top_left.x, abs_top_left.y + y_gap},					// top right
+            {abs_top_left.x, abs_bottom_right.y},					// bottom left
+            abs_bottom_right,									// bottom right		
+            {abs_bottom_right.x, abs_top_left.y + y_gap},				// top right
+            {abs_top_left.x + 20 + text_rect.x, abs_top_left.y + y_gap} // top right + text end
+        };
+
+        const int in = 1;
+        const ImVec2 points_inner[] =
+        {
+            {abs_top_left.x + 20, abs_top_left.y + y_gap + in},				 // top left + text start
+            {abs_top_left.x + in, abs_top_left.y + y_gap + in},				 // top left
+            {abs_top_left.x + in, abs_bottom_right.y - in},				 // bottom left
+            {abs_bottom_right.x - in, abs_bottom_right.y - in},			 // bottom right		
+            {abs_bottom_right.x - in, abs_top_left.y + y_gap + in},			 // top right
+            {abs_top_left.x + 20 + text_rect.x, abs_top_left.y + y_gap + in} // top right + text end
+        };
+
+        draw_list->AddPolyline(&points_inner[0], IM_ARRAYSIZE(points_inner), IM_COL32(124, 124, 124, 255), false, 1.f);
+        //draw_list->AddPolyline(&points[0], IM_ARRAYSIZE(points), IM_COL32(0, 0, 0, 255), false, 1.f); 
+        //draw_list->AddRectFilledMultiColor({ abs_top_left.x, abs_top_left.y + 7 }, abs_bottom_right, combo_shader1, combo_shader1, combo_shader2, combo_shader2);
+
+        ImGui::SetCursorPos({ top_left.x + 20, top_left.y - text_rect.y / 2 });
+        ImGui::Text(label.c_str());
+
+        ImGui::SetCursorPos(previous_pos);
+    }
+
     // Data
     static ID3D11Device* g_pd3dDevice = NULL;
     static ID3D11DeviceContext* g_pd3dDeviceContext = NULL;
@@ -50,7 +94,7 @@ namespace client_gui
 
     // window size and location
     static bool show_login = true;
-    static ImVec2 login_size{ 400, 150 };
+    static ImVec2 login_size{ 332, 163 };
     static ImVec2 menu_size{ 500, 500 };
     static int middle_x = ::GetSystemMetrics(SM_CXSCREEN) / 2;
     static int middle_y = ::GetSystemMetrics(SM_CYSCREEN) / 2;
@@ -58,10 +102,76 @@ namespace client_gui
     static int y_location = middle_y - login_size.y / 2;
     std::wstring class_name = L"class";
     std::wstring wnd_name = L"window";
+    // text entry buffers
+    char username_buffer[24];
+    char password_buffer[24];
+    char key_buffer[38];
 
+    // macro to easily change mouse to hand cursor on hovered widgets
+#define HAND_CURSOR if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand)
+
+    // called to render before the user logs in
+    void login_frame()
+    {
+        static bool show_register = false; // if user wants to register account
+
+        // sizing variables
+        const int x_gap = 8;                // gap from left edge
+        const int y_gap = 25;               // gap from top edge
+        const int entry_x_gap = 8;          // entry x gap from combo box border
+        const int entry_y_gap = y_gap + 8;  // entry y gap from combo box border
+        const int entry_height = 20;        // height of the text entry box
+        const int entry_width = 300;        // width of the text entry box
+
+        using namespace ImGui;
+
+        combo_box(show_register ? "register account" : "login", { x_gap, y_gap }, { static_cast<float>(entry_width + entry_x_gap * 2), static_cast<float>(entry_y_gap - y_gap + entry_height * (show_register ? 3 : 2) + entry_x_gap) });
+
+        // entry widgets
+        SetCursorPos({ x_gap + entry_x_gap, entry_y_gap });
+        SetNextItemWidth(entry_width);
+        InputTextWithHint("##username_entry", "username", username_buffer, sizeof(username_buffer));
+
+        SetCursorPos({ x_gap + entry_x_gap, entry_y_gap + entry_height });
+        SetNextItemWidth(entry_width);
+        InputTextWithHint("##password_entry", "password", password_buffer, sizeof(password_buffer), ImGuiInputTextFlags_Password);
+        
+        if (show_register)
+        {
+            SetCursorPos({ x_gap + entry_x_gap, entry_y_gap + entry_height * 2 });
+            SetNextItemWidth(entry_width);
+            InputTextWithHint("##key_entry", "product key", key_buffer, sizeof(key_buffer), ImGuiInputTextFlags_NoHorizontalScroll);
+        }
+
+        // buttons
+        ImVec2 button_pos{ x_gap, static_cast<float>(entry_y_gap - y_gap + entry_height * 3 + entry_x_gap + entry_y_gap) };
+        SetCursorPos(button_pos);
+        if (Button(show_register ? "i have an account" : "i don't have an account", {200, 20}))
+            show_register = !show_register;
+        HAND_CURSOR;
+
+        SetCursorPos({ button_pos.x + 200 + entry_x_gap, button_pos.y });
+        if (Button("submit", { entry_width + entry_x_gap * 2 - 200 - entry_x_gap, 20 }))
+        {
+
+        }
+        HAND_CURSOR;
+
+        SetCursorPos({ button_pos.x, button_pos.y + entry_height + x_gap });
+        Checkbox("remember info", &network::api::remember_login);
+        HAND_CURSOR;
+    }
+
+    // called to render after the user logs in
+    void products_frame()
+    {
+        using namespace ImGui;
+    }
+
+    // main render loop function
     void start()
     {
-        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE);
+        ::SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE);
 
         // create application window class
         WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, class_name.c_str(), NULL };
@@ -69,6 +179,8 @@ namespace client_gui
 
         // create application window
         HWND hwnd = ::CreateWindow(wc.lpszClassName, wnd_name.c_str(), WS_POPUP, x_location, y_location, (show_login ? login_size.x : menu_size.x), (show_login ? login_size.y : menu_size.y), NULL, NULL, wc.hInstance, NULL);
+        
+        ::SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
         // initialize Direct3D
         if (!CreateDeviceD3D(hwnd))
@@ -76,7 +188,7 @@ namespace client_gui
             CleanupDeviceD3D();
             ::UnregisterClass(wc.lpszClassName, wc.hInstance);
             ::MessageBoxA(NULL, "window failed to create", NULL, MB_ICONERROR);
-            //start();
+            return;
         }
 
         // show the window
@@ -172,17 +284,10 @@ namespace client_gui
 
         // conditional rendering variables
         static bool login_page_show_register = false;
+        static bool should_exit = false;
 
-        // text entry buffers
-        std::string username_buffer; username_buffer.resize(24);
-        std::string password_buffer; password_buffer.resize(24);
-        std::string key_buffer; key_buffer.resize(38);
-
-        // easy macro for changing cursor to hand on hovered items
-#define HC if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand)
-        
         // window flags for imgui windows
-        ImGuiWindowFlags imgui_wnd_flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar;
+        ImGuiWindowFlags imgui_wnd_flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar;
        
         // main render loop
         MSG msg;
@@ -214,59 +319,29 @@ namespace client_gui
             ImGui_ImplDX11_NewFrame();
             ImGui_ImplWin32_NewFrame();
             ImGui::NewFrame();
+
+            ImGui::SetNextWindowPos({ 0, 0 });
+            ImGui::SetNextWindowSize(login_size);
+            ImGui::Begin("licensing system", &should_exit, imgui_wnd_flags);
+
             using namespace ImGui;
             {
                 // render login window
                 if (!network::api::has_logged_in)
                 {
-                    SetNextWindowPos({ 0, 0 });
-                    SetNextWindowSize(login_size);
-                    Begin("login window", 0, imgui_wnd_flags);
-
-                    if (widgets::title_bar("login window", true))
-                        break;
-                    if (widgets::shadow_button("login", { 3, 127 }, { 80, 20 }))
-                        login_page_show_register = false;
-                    if (widgets::shadow_button("register", { 85, 127 }, { 80, 20 }))
-                        login_page_show_register = true;
-
-                    if (widgets::shadow_button2("go", { 317, 127 }, { 80, 20 }))
-                    {
-                        network::api::username = username_buffer;
-                        network::api::password = password_buffer;
-
-                        if (!login_page_show_register)
-                            network::api::should_login = true;
-
-                        else
-                        {
-                            network::api::product_key = key_buffer;
-                            network::api::should_register = true;
-                        }
-                    };
-                    
-                    widgets::text_entry_hint("username", { 50, 50 }, { 200, 50}, username_buffer);
-                    widgets::text_entry_hint("pasword", { 50, 70 }, { 200, 50 }, password_buffer);
-                    if (login_page_show_register)
-                        widgets::text_entry_hint("product key", { 50, 90 }, { 300, 50 }, key_buffer);
+                    login_frame();
                 }
                 // render product window
                 else if (network::api::has_logged_in)
                 {
-                    SetNextWindowPos({ 0, 0 });
-                    SetNextWindowSize(menu_size);
-                    Begin("product window", 0, imgui_wnd_flags);
-
-                    if (widgets::title_bar("welcome " + network::api::username, true))
-                        break;
-
-                    if (widgets::shadow_button("launch", { 50,50 }, { 100,20 }))
-                        network::api::should_request_product = true;
+                    products_frame();
                 }
 
+                // if a message needs to be displayed, open the popup
                 if (network::api::show_popup_message)
                     OpenPopup("##message_display");
 
+                // popup window for displaying various messages to the user
                 SetNextWindowSize({300, 50});
                 if (BeginPopupModal("##message_display", 0, imgui_wnd_flags))
                 {
@@ -291,11 +366,13 @@ namespace client_gui
                     EndPopup();
                 }
                
-               End();
+               
             }
 
             // rendering
+            ImGui::End();
             ImGui::Render();
+
             g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, NULL);
             g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, (float*)&clear_color);
             ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
