@@ -52,3 +52,6 @@ Client/cryptopp840/x64/Output/Debug/cryptlib.lib
 Client/cryptopp840/x64/Output/Release/cryptlib.lib
 Client/x64/Debug/Client.ilk
 Server/src/server/DiscordWebhook.java
+Client/ExampleProduct/x64/Debug/ExampleProduct.exp
+Client/ExampleProduct/x64/Debug/ExampleProduct.ilk
+Client/ExampleProduct/x64/Debug/ExampleProduct.lib
