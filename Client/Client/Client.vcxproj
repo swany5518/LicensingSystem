@@ -79,12 +79,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(SolutionDir)cryptopp840;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)cryptopp820\x64\Output\Debug;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)cryptopp840\x64\Output\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)cryptopp820;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)cryptopp820\x64\Output\Release;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)cryptopp840;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)cryptopp840\x64\Output\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -189,6 +189,11 @@
     <ClCompile Include="imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\cryptopp840\cryptlib.vcxproj">
+      <Project>{c39f4b46-6e89-4074-902e-ca57073044d2}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
