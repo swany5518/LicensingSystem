@@ -13,9 +13,9 @@ import java.sql.Connection;
 public class DatabaseAPI 
 {
 	private static final String JDBC_DRIVER = "com.mysql.cj.jdbc.Driver";
-	private static final String DB_URL = "jdbc:mysql://165.227.219.1/LicensingSystem";
-	private static final String USER = "swany55";
-	private static final String PASS = "BA7YlD6AUWbociPs";
+	private static final String DB_URL = "jdbc:mysql://localhost/LicensingSystem";
+	private static final String USER = "username";
+	private static final String PASS = "password";
 	
 	//
 	// simple connection pool implementation

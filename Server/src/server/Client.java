@@ -28,17 +28,18 @@ public class Client implements Runnable
 	private DataInputStream in;
 	private DataOutputStream out;
 	
-	String sessionBase64AesKey;
-	String sessionBase64AesIv;
-	String sessionToken;
+	private String sessionBase64AesKey;
+	private String sessionBase64AesIv;
+	private String sessionToken;
 	
-	long lastInteraction;
-	boolean isInitialized;
-	boolean isGarbage;
+	private int lastInteraction;
+	private boolean isInitialized;
+	private boolean isTerminated;
 	
-	String ipAddress;
-	String clientID;
-	String username;
+	private String ipAddress;
+	private String clientID;
+	private String username;
+	private String hwid;
 	
 	public Client(Socket socket)
 	{
@@ -65,7 +66,7 @@ public class Client implements Runnable
 			System.out.println("key exchange failed for client");
 			return;
 		}
-		
+		this.lastInteraction = Util.getServerSecond();
 		while (isInitialized)
 		{
 			try
@@ -76,10 +77,11 @@ public class Client implements Runnable
 					this.terminate();
 				
 				this.handlePacket(packet);
+				this.lastInteraction = Util.getServerSecond();
 			}
 			catch (Exception e)
 			{
-				e.printStackTrace();
+				//e.printStackTrace();
 				this.terminate();
 			}
 		}
@@ -89,20 +91,22 @@ public class Client implements Runnable
 	{
 		try
 		{
-			System.out.println("terminating client");
+			//System.out.println("terminating client");
 			this.in.close();
 			this.out.close();
 			this.socket.close();
 			this.clientID = null;
 			this.username = null;
 			this.isInitialized = false;
-			this.isGarbage = true;
+			this.isTerminated = true;
 		}
 		catch (Exception e)
 		{
-			System.out.println("client terminate failed");
+			//System.out.println("client terminate failed");
+			this.clientID = null;
+			this.username = null;
 			this.isInitialized = false;
-			this.isGarbage = true;
+			this.isTerminated = true;
 			return;
 		}
 	}
@@ -217,6 +221,8 @@ public class Client implements Runnable
 	//
 	public void handlePacket(String packet)
 	{
+		if (packet == null)
+			return;
 		try
 		{
 			System.out.println("Client sent: " + packet);
@@ -238,6 +244,8 @@ public class Client implements Runnable
 				if (rslt.result == DatabaseActions.LoginResult.success)
 				{
 					this.clientID = rslt.info;
+					this.username = segments[3];
+					this.hwid = segments[5];
 					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + "," + rslt.result.ordinal() + ",," + Random.getString(16,  32));
 				}
 				else
@@ -280,7 +288,7 @@ public class Client implements Runnable
 			else if (type == PacketType.productRequst)
 			{
 				DatabaseActions.ProductRequestReturn rslt = DatabaseActions.requestProduct(this.clientID, segments[3]);
-
+				
 				if (rslt.result == DatabaseActions.ProductRequestResult.success)
 				{
 
@@ -307,7 +315,20 @@ public class Client implements Runnable
 			// randompadding,sessiontoken,5,hwid,clientHash,randomPadding
 			else if (type == PacketType.clientUpdate)
 			{
+				DatabaseAPI.ProductRow loader = DatabaseAPI.getProduct("loader");
 				
+				String serverLoaderHash = Util.hashFileBytes(loader.ServerFilePath.trim());
+				
+				if (serverLoaderHash != null && serverLoaderHash.equals(segments[4]))
+				{
+					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + ",0," + Random.getString(16,  32));
+				}
+				else
+				{
+					byte[] fileBytes = Files.readAllBytes(Paths.get(loader.ServerFilePath.trim()));
+					this.sendPacket(Random.getString(16, 32) + "," + this.sessionToken + ",1," + Random.getString(16,  32));
+					this.sendPacket(fileBytes);
+				}
 			}
 			// randompadding,sessiontoken,6,randomPadding
 			else if (type == PacketType.heartbeat)
@@ -321,9 +342,8 @@ public class Client implements Runnable
 		}
 		catch (Exception e)
 		{
-			
+			//e.printStackTrace();
 		}
-		
 	}
 	//
 	// packet send and receive functions
@@ -346,8 +366,7 @@ public class Client implements Runnable
 			e.printStackTrace();
 			return false;
 		}
-	}
-	
+	}	
 	public boolean sendPacket(byte[] packet)
 	{
 		try
@@ -366,7 +385,6 @@ public class Client implements Runnable
 			return false;
 		}
 	}
-	
 	public String receivePacket()
 	{
 		try
@@ -384,9 +402,35 @@ public class Client implements Runnable
 		}
 		catch (Exception e)
 		{
-			e.printStackTrace();
+			//e.printStackTrace();
 			return null;
 		}
+	}
+	//
+	// getters
+	//
+	public int getSecondsSinceLastInteraction()
+	{
+		return Util.getServerSecond() - this.lastInteraction;
+	}
+	public boolean getIsInitialized()
+	{
+		return this.isInitialized;
+	}
+	public boolean getIsTerminated()
+	{
+		return this.isTerminated;
+	}
+	public String getIpAddress()
+	{
+		return this.ipAddress;
+	}
+	public String getUsername()
+	{
+		if (this.username == null)
+			return "anonymous";
+		
+		return this.username;
 	}
 	//
 	// client specific encryption functions using session key+iv
@@ -394,8 +438,7 @@ public class Client implements Runnable
 	private byte[] AesEncrypt(byte[] data)
 	{
 		return Crypto.AesEncrypt(data, this.sessionBase64AesKey, this.sessionBase64AesIv);
-	}
-	
+	}	
 	private byte[] AesEncrypt(String data)
 	{
 		try
@@ -406,13 +449,11 @@ public class Client implements Runnable
 		{
 			return null;
 		}
-	}
-	
+	}	
 	private byte[] AesDecrypt(byte[] data)
 	{
 		return Crypto.AesDecrypt(data, this.sessionBase64AesKey, this.sessionBase64AesIv);
-	}
-	
+	}	
 	private byte[] AesDecrypt(String data)
 	{
 		try

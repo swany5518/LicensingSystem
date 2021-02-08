@@ -28,6 +28,7 @@ public class DatabaseActions
 	public static class ProductRequestReturn
 	{
 		ProductRequestResult result;
+		DatabaseAPI.ProductRow product;
 		String info;
 		int secondsLeft;
 		
@@ -36,6 +37,7 @@ public class DatabaseActions
 			this.result = result;
 			this.info = " ";
 			this.secondsLeft = 0;
+			this.product = null;
 		}
 		
 		public ProductRequestReturn(ProductRequestResult result, String info)
@@ -43,6 +45,7 @@ public class DatabaseActions
 			this.result = result;
 			this.info = info;
 			this.secondsLeft = 0;
+			this.product = null;
 		}
 		
 		public ProductRequestReturn(ProductRequestResult result, String info, int secondsLeft)
@@ -50,6 +53,15 @@ public class DatabaseActions
 			this.result = result;
 			this.info = info;
 			this.secondsLeft = secondsLeft;
+			this.product = null;
+		}
+		
+		public ProductRequestReturn(ProductRequestResult result, String info, int secondsLeft, DatabaseAPI.ProductRow product)
+		{
+			this.result = result;
+			this.info = info;
+			this.secondsLeft = secondsLeft;
+			this.product = product;
 		}
 	}
 	
@@ -295,8 +307,8 @@ public class DatabaseActions
 			return new ProductRequestReturn(ProductRequestResult.productNotFound);
 		
 		// check if product is down
-		if (!product.Status.equals("up"))
-			return new ProductRequestReturn(ProductRequestResult.productDown, product.Status);
+		//if (product.Status.equals("down"))
+			//return new ProductRequestReturn(ProductRequestResult.productDown, product.Status);
 			
 		// check for restrictions
 		DatabaseAPI.RestrictionsRow restriction = DatabaseAPI.getRestrictionByClientAndProductID(ClientID, ProductID);
@@ -305,7 +317,7 @@ public class DatabaseActions
 		else if (restriction != null)
 			DatabaseAPI.removeRestriction(restriction.RestrictionID);
 		
-		return new ProductRequestReturn(ProductRequestResult.success, product.ServerFilePath, row.LicenseEnd - Util.getServerSecond());
+		return new ProductRequestReturn(ProductRequestResult.success, product.ServerFilePath, row.LicenseEnd - Util.getServerSecond(), product);
 	}
 	
 	private static boolean filterPassword(String password)
