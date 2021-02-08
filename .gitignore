@@ -50,3 +50,4 @@ Client/cryptopp840/x64/cryptlib/Debug/cryptlib.vcxproj.FileListAbsolute.txt
 Client/cryptopp840/x64/cryptlib/Release/cryptlib.pch
 Client/cryptopp840/x64/Output/Debug/cryptlib.lib
 Client/cryptopp840/x64/Output/Release/cryptlib.lib
+Client/x64/Debug/Client.ilk

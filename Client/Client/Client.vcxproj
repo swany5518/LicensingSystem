@@ -160,7 +160,8 @@
     <ClInclude Include="base64.hpp" />
     <ClInclude Include="client_gui.hpp" />
     <ClInclude Include="crypto.hpp" />
-    <ClInclude Include="imgui\custom_widgets.h" />
+    <ClInclude Include="globals.h" />
+    <ClInclude Include="hwid.h" />
     <ClInclude Include="imgui\fonts.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />

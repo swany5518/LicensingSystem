@@ -6,7 +6,6 @@
 #include "imgui/imgui_impl_win32.h"
 #include "imgui/imgui_impl_dx11.h"
 #include "imgui/fonts.h"
-#include "imgui/custom_widgets.h"
 
 #include <d3d11.h>
 #define DIRECTINPUT_VERSION 0x0800
@@ -95,7 +94,7 @@ namespace client_gui
     // window size and location
     static bool show_login = true;
     static ImVec2 login_size{ 332, 163 };
-    static ImVec2 menu_size{ 500, 500 };
+    static ImVec2 menu_size{ 332, 163 };
     static int middle_x = ::GetSystemMetrics(SM_CXSCREEN) / 2;
     static int middle_y = ::GetSystemMetrics(SM_CYSCREEN) / 2;
     static int x_location = middle_x - login_size.x / 2;
@@ -106,6 +105,21 @@ namespace client_gui
     char username_buffer[24];
     char password_buffer[24];
     char key_buffer[38];
+
+    // predefined colors
+    const ImVec4 red = ImVec4(0.824f, 0.024f, 0.024f, 1.00f);
+    const ImVec4 orange = ImVec4(0.824f, 0.824f, 0.024f, 1.00f);
+    const ImVec4 green = ImVec4(0.134f, 0.814f, 0.092f, 1.00f);
+    const ImVec4 grey = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    const ImVec4 lightGrey = ImVec4(.618f, .618f, .618, 1.0f);
+    const ImVec4 purple = ImVec4(0.647f, 0.130f, 0.716f, 1.0f);
+    const ImVec4 lightPurple = ImVec4(.731f, .000f, .828f, 1.0f);
+    const ImVec4 darkPurple = ImVec4(.314f, .000f, .368f, 1.0f);
+    const ImVec4 backgroundPurple = ImVec4(.090f, .090f, .118f, 1.000f);
+    const ImVec4 dullWhite = ImVec4(.926f, .926f, .926f, .95f);
+    const ImVec4 magenta = ImVec4(.698f, .000f, 1.00f, 1.0f);
+    const ImVec4 moneygGreen = ImVec4(.0f, .699f, .217f, 1.0f);
+    const ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // macro to easily change mouse to hand cursor on hovered widgets
 #define HAND_CURSOR if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand)
@@ -153,19 +167,116 @@ namespace client_gui
         SetCursorPos({ button_pos.x + 200 + entry_x_gap, button_pos.y });
         if (Button("submit", { entry_width + entry_x_gap * 2 - 200 - entry_x_gap, 20 }))
         {
+            network::api::username = std::string(username_buffer);
+            network::api::password = std::string(password_buffer);
 
+            if (!show_register)
+            {
+                network::api::should_login = true;
+            }
+            else
+            {
+                network::api::product_key = std::string(key_buffer);
+                network::api::should_register = true;
+            }
         }
         HAND_CURSOR;
-
+        static bool remember_login_placeholder = false; // replace once a config file has been added
         SetCursorPos({ button_pos.x, button_pos.y + entry_height + x_gap });
-        Checkbox("remember info", &network::api::remember_login);
+        Checkbox("remember info", &remember_login_placeholder);
         HAND_CURSOR;
     }
 
     // called to render after the user logs in
     void products_frame()
     {
+        // sizing variables
+        const int x_gap = 8;                // gap from left edge
+        const int y_gap = 25;               // gap from top edge
+        const int entry_height = 20;        // height of the text entry box
+        const int entry_width = 300;        // width of the text entry box
+
+        static bool show_redeem = true; // if we want to show the redeem key page
+        static char key_entry_buf[38];
         using namespace ImGui;
+
+        combo_box(show_redeem ? "redeem key" : "products", { x_gap, y_gap }, { static_cast<float>(entry_width + x_gap * 2), 100 });
+
+        if (show_redeem)
+        {   
+            SetCursorPos({ x_gap * 2, y_gap + x_gap });
+            SetNextItemWidth(entry_width);
+            InputTextWithHint("##key_entry", "product key", key_entry_buf, sizeof(key_entry_buf));
+
+            SetCursorPos({ x_gap + 241, y_gap + 100 + x_gap });
+            if (Button("submit", { 75, 20 }))
+            {
+                network::api::product_key = std::string(key_entry_buf);
+                network::api::should_redeem = true;
+            }
+            
+        }
+        else
+        {
+            { // listbox displaying products
+                GetStyle().ScrollbarSize = 6;
+                GetStyle().ScrollbarRounding = 0;
+                PushStyleColor(ImGuiCol_Header, ImGuiCol_WindowBg);
+                PushStyleColor(ImGuiCol_HeaderHovered, ImGuiCol_WindowBg);
+                PushStyleColor(ImGuiCol_HeaderActive, ImGuiCol_WindowBg);
+                PushStyleColor(ImGuiCol_FrameBg, ImGuiCol_WindowBg);
+                auto pos = GetCursorPos();
+                ImGui::SetCursorPos({static_cast<float>(x_gap * 2), static_cast<float>(y_gap + x_gap)});
+                ListBoxHeader("##productlistbox", { entry_width, 84 });
+
+                if (network::api::product_list.size() == 0)
+                    TextDisabled("no active subs");
+
+                for (auto i = 0u; i < network::api::product_list.size(); ++i)
+                {
+                    auto& cur = network::api::product_list[i];
+                    PushStyleColor(ImGuiCol_Text, (cur.selected ? ImVec4(1.00f, 1.00f, 1.00f, 1.00f) : ImVec4(0.50f, 0.50f, 0.50f, 1.00f)));
+
+                    if (Selectable((cur.name + "##" + cur.id).c_str(), &cur.selected))
+                    {
+                        if (network::api::selected_product == &cur)
+                        {
+                            cur.selected = false;
+                            network::api::selected_product = nullptr;
+                        }
+                        else
+                        {
+                            network::api::selected_product = &cur;
+                            for (auto j = 0u; j < network::api::product_list.size(); ++j)
+                                network::api::product_list[j].selected = (i == j);
+                        }
+                    }
+                    if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                    PopStyleColor();
+                }
+
+                ListBoxFooter();
+                PopStyleColor(4);
+            }
+
+            if (network::api::selected_product != nullptr)
+            {
+                SetCursorPos({ x_gap + 90, y_gap + 100 + x_gap + 4 });
+                Text("time: ");
+                SameLine();
+                TextColored(network::api::selected_product->time_left_color() ? green : orange, network::api::selected_product->get_product_time().c_str());
+
+                SetCursorPos({ x_gap + 241, y_gap + 100 + x_gap });
+                if (Button("launch", { 75, 20 }))
+                    network::api::should_redeem = true;
+                HAND_CURSOR;
+            }
+        }
+
+        SetCursorPos({ x_gap, y_gap + 100 + x_gap });
+        if (Button(show_redeem ? "products" : "redeem", { 75, 20 }))
+            show_redeem = !show_redeem;
+        HAND_CURSOR;
     }
 
     // main render loop function
@@ -252,13 +363,6 @@ namespace client_gui
 
         // load fonts we want to use
         ImFont* font_crux = io.Fonts->AddFontFromMemoryTTF(fonts::coders_crux.data(), fonts::coders_crux.size(), 12.0f);
-        ImFont* font_crux_small = io.Fonts->AddFontFromMemoryTTF(fonts::coders_crux.data(), fonts::coders_crux.size(), 11.75f);
-        ImFont* font_crux_small_small = io.Fonts->AddFontFromMemoryTTF(fonts::coders_crux.data(), fonts::coders_crux.size(), 10.0f);
-        ImFont* font_crux_big = io.Fonts->AddFontFromMemoryTTF(fonts::coders_crux.data(), fonts::coders_crux.size(), 20.0f);
-        ImFont* block_font = io.Fonts->AddFontFromMemoryTTF(fonts::blocks.data(), fonts::blocks.size(), 54.0f);
-        widgets::font_normal = font_crux;
-        widgets::font_small = font_crux_small;
-        widgets::font_small_small = font_crux_small_small;
 
         // setup platform/renderer bindings
         ImGui_ImplWin32_Init(hwnd);
@@ -267,24 +371,9 @@ namespace client_gui
         // disable alt enter fullscreen toggle
         g_pFactory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
 
-        // predefined colors
-        const ImVec4 red = ImVec4(0.824f, 0.024f, 0.024f, 1.00f);
-        const ImVec4 orange = ImVec4(0.824f, 0.824f, 0.024f, 1.00f);
-        const ImVec4 green = ImVec4(0.134f, 0.814f, 0.092f, 1.00f);
-        const ImVec4 grey = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-        const ImVec4 lightGrey = ImVec4(.618f, .618f, .618, 1.0f);
-        const ImVec4 purple = ImVec4(0.647f, 0.130f, 0.716f, 1.0f);
-        const ImVec4 lightPurple = ImVec4(.731f, .000f, .828f, 1.0f);
-        const ImVec4 darkPurple = ImVec4(.314f, .000f, .368f, 1.0f);
-        const ImVec4 backgroundPurple = ImVec4(.090f, .090f, .118f, 1.000f);
-        const ImVec4 dullWhite = ImVec4(.926f, .926f, .926f, .95f);
-        const ImVec4 magenta = ImVec4(.698f, .000f, 1.00f, 1.0f);
-        const ImVec4 moneygGreen = ImVec4(.0f, .699f, .217f, 1.0f);
-        const ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
         // conditional rendering variables
         static bool login_page_show_register = false;
-        static bool should_exit = false;
+        static bool should_render = true;
 
         // window flags for imgui windows
         ImGuiWindowFlags imgui_wnd_flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar;
@@ -322,7 +411,11 @@ namespace client_gui
 
             ImGui::SetNextWindowPos({ 0, 0 });
             ImGui::SetNextWindowSize(login_size);
-            ImGui::Begin("licensing system", &should_exit, imgui_wnd_flags);
+            ImGui::Begin("licensing system", &should_render, imgui_wnd_flags);
+
+            // if close was clicked break out of rendering loop
+            if (!should_render)
+                break;
 
             using namespace ImGui;
             {
@@ -350,13 +443,14 @@ namespace client_gui
                         std::array<char, 4> spinner = { '/', '-', '\\', '|' };
                         auto progress = spinner[std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count() / 100 % 4];
                         SetCursorPos({10, 10});
-                        widgets::shadow_text(network::api::popup_message + " [" + progress + "]");
+                        Text((network::api::popup_message + " [" + progress + "]").c_str());
                     }
                     else if (network::api::allow_popup_close)
                     {
                         SetCursorPos({ 10, 10 });
-                        widgets::shadow_text(network::api::popup_message);
-                        if (widgets::shadow_button("close", { 250, 30 }, { 50, 20 }))
+                        Text(network::api::popup_message.c_str());
+                        SetCursorPos({250, 30});
+                        if (Button("close", { 50, 20 }))
                             network::api::show_popup_message = false; 
                     }
 
@@ -365,8 +459,6 @@ namespace client_gui
 
                     EndPopup();
                 }
-               
-               
             }
 
             // rendering
@@ -383,6 +475,7 @@ namespace client_gui
 
         network::api::disconnect();
         network::api::network_thread_should_run = false;
+        globals::should_exit = true;
 
         // cleanup imgui
         ImGui_ImplDX11_Shutdown();

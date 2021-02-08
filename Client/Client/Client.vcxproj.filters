@@ -96,8 +96,11 @@
     <ClInclude Include="xorstr.hpp">
       <Filter>Header Files\utilities</Filter>
     </ClInclude>
-    <ClInclude Include="imgui\custom_widgets.h">
-      <Filter>Header Files\ui\imgui</Filter>
+    <ClInclude Include="hwid.h">
+      <Filter>Header Files\utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="globals.h">
+      <Filter>Header Files\utilities</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
