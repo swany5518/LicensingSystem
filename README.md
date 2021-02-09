@@ -12,6 +12,9 @@ Database can host N amount of products on the server and distribute them to clie
 Products are runtime protected so they cannot be ran without a valid license
 
 ### Status
-This project is not done yet.                                                                                                                                                      
+This project is working, but more could be added.                                                                                                                               
 I am writing an ImGui menu for a demo.    
 I am currently writing a C++ UI library that I will add to this project for the UI once its complete
+
+### Demos
+client's point of view account creation, login, and product run: https://streamable.com/w6gq8k
