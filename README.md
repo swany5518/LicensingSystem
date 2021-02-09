@@ -2,8 +2,9 @@
 A system for setting up and managing client licenses for software products on Windows
 
 ### How it works
-Server backend written in Java designed to communicate with the MySQL database                                                                                                             
+Server backend written in Java designed to communicate with the MySQL database                                                                                                     
 Client frontend written in C++ that communicates with the server
+Products are stored on server and streamed to client when first using, or when updates are required
 
 ### Features
 Secure TCP connections using Winsock2 and Java sockets                                                                                                                            
@@ -13,7 +14,7 @@ Products are runtime protected so they cannot be ran without a valid license
 
 ### Status
 This project is working, but more could be added.                                                                                                                               
-I am writing an ImGui menu for a demo.    
+There is currently a very simple ImGui UI for the client                                                                                                                           
 I am currently writing a C++ UI library that I will add to this project for the UI once its complete
 
 ### Demos
