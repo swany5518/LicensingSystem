@@ -26,3 +26,6 @@ I am currently writing a C++ UI library that I will add to this project for the 
 
 ## Demos
 Client's point of view account creation, login, and product run: https://streamable.com/w6gq8k
+
+## Todo
+upload full demo on how to set up server and database
