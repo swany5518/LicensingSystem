@@ -18,4 +18,4 @@ There is currently a very simple ImGui UI for the client
 I am currently writing a C++ UI library that I will add to this project for the UI once its complete
 
 ### Demos
-client's point of view account creation, login, and product run: https://streamable.com/w6gq8k
+Client's point of view account creation, login, and product run: https://streamable.com/w6gq8k
