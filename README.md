@@ -1,11 +1,11 @@
 # LicensingSystem
 A system for setting up and managing client licenses for software products on Windows
 
-### The problem
+## The problem
 Allowing people to run software that I have written without them sharing, cracking, or using without a valid license                                                               
 Simple hwid locking does not allow for auto updates, and is harder to control the license times                                                                                     
 
-### The solution
+## The solution
 A server based licensing system                                                                                                                                                     
 
 ### How it works
