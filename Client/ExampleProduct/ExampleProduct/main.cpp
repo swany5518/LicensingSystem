@@ -52,7 +52,7 @@ void main_program_loop()
 
 int main()
 {
-	challenge_export.seconds_left = 100;
+	SetConsoleTitleA("Example Product");
 	globals::startup_time = runtime_challenge::get_system_second();
 
 	for (auto i = 0u; i < 5; ++i)
@@ -61,6 +61,9 @@ int main()
 			main_program_loop();
 
 		if (i == 4)
-			std::cout << "you do not have access to this software" << std::endl;
+			std::cout << "sorry, you do not have access to this software" << std::endl;
 	}
+
+	std::cout << "closing in 5 seconds..." << std::endl;
+	Sleep(5000);
 }

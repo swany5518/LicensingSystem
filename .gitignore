@@ -55,3 +55,5 @@ Server/src/server/DiscordWebhook.java
 Client/ExampleProduct/x64/Debug/ExampleProduct.exp
 Client/ExampleProduct/x64/Debug/ExampleProduct.ilk
 Client/ExampleProduct/x64/Debug/ExampleProduct.lib
+Client/cryptopp840/adhoc.cpp.copied
+Client/x64/Debug/Client.ilk

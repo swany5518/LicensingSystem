@@ -196,7 +196,7 @@ namespace client_gui
         const int entry_height = 20;        // height of the text entry box
         const int entry_width = 300;        // width of the text entry box
 
-        static bool show_redeem = true; // if we want to show the redeem key page
+        static bool show_redeem = false; // if we want to show the redeem key page
         static char key_entry_buf[38];
         using namespace ImGui;
 
@@ -268,7 +268,7 @@ namespace client_gui
 
                 SetCursorPos({ x_gap + 241, y_gap + 100 + x_gap });
                 if (Button("launch", { 75, 20 }))
-                    network::api::should_redeem = true;
+                    network::api::should_request_product = true;
                 HAND_CURSOR;
             }
         }
@@ -390,7 +390,7 @@ namespace client_gui
                 continue;
             }
 
-            // if they just logged in, we need to resize window
+            // if they just logged in, we need to resize window (in case the products window is bigger than the login window
             if (network::api::just_logged_in)
             {
                 network::api::just_logged_in = false;
@@ -414,7 +414,7 @@ namespace client_gui
             ImGui::Begin("licensing system", &should_render, imgui_wnd_flags);
 
             // if close was clicked break out of rendering loop
-            if (!should_render)
+            if (!should_render || globals::should_exit)
                 break;
 
             using namespace ImGui;
@@ -436,22 +436,24 @@ namespace client_gui
 
                 // popup window for displaying various messages to the user
                 SetNextWindowSize({300, 50});
-                if (BeginPopupModal("##message_display", 0, imgui_wnd_flags))
+                if (BeginPopupModal("##message_display", 0, imgui_wnd_flags | ImGuiWindowFlags_NoTitleBar))
                 {
                     if (network::api::show_popup_progression)
                     {
                         std::array<char, 4> spinner = { '/', '-', '\\', '|' };
                         auto progress = spinner[std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count() / 100 % 4];
-                        SetCursorPos({10, 10});
+                        auto msg = network::api::popup_message + " [" + progress + "]";
+                        SetCursorPos({ 150.f - CalcTextSize(msg.c_str()).x / 2.f, 10 });
                         Text((network::api::popup_message + " [" + progress + "]").c_str());
                     }
                     else if (network::api::allow_popup_close)
                     {
-                        SetCursorPos({ 10, 10 });
+                        SetCursorPos({ 150.f - CalcTextSize(network::api::popup_message.c_str()).x / 2.f, 10 });
                         Text(network::api::popup_message.c_str());
-                        SetCursorPos({250, 30});
+                        SetCursorPos({240, 24});
                         if (Button("close", { 50, 20 }))
                             network::api::show_popup_message = false; 
+                        HAND_CURSOR;
                     }
 
                     if (!network::api::show_popup_message)

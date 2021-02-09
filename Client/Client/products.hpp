@@ -45,8 +45,9 @@ namespace products
 
 		std::string get_file_name() const
 		{
-			int seed = hwid::hash::fnv1a(id) + hwid::file_date() + hwid::hash::fnv1a(hwid::generate_aes_key());
-			return hwid::random::get_string(10, seed);
+			return name;
+			//int seed = hwid::hash::fnv1a(id) + hwid::file_date() + hwid::hash::fnv1a(hwid::generate_aes_key());
+			//return hwid::random::get_string(10, seed);
 		}
 
 		std::string get_product_time()
@@ -107,7 +108,7 @@ namespace products
 			if (!hmod)
 				return { false, "failed to get load module" };
 
-			auto challenge_address = GetProcAddress(hmod, "MainCRTStartup");
+			auto challenge_address = GetProcAddress(hmod, "challenge_export"); // maybe rename to throw off reverse engineers
 			auto challenge_offset = reinterpret_cast<uintptr_t>(challenge_address) - reinterpret_cast<uintptr_t>(hmod);
 
 			FreeLibrary(hmod);

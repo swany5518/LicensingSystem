@@ -19,7 +19,7 @@
 #include <Windows.h>
 
 #define SERVER_PORT 5444
-#define SERVER_IP "0.0.0.0"
+#define SERVER_IP "165.227.219.1"
 
 namespace network
 {
@@ -577,8 +577,8 @@ namespace network
 		inline bool should_request_product = false;
 		inline bool should_redeem = false;
 		inline bool should_clear_key = false;
-		inline bool has_logged_in = true;
-		inline bool just_logged_in = true;
+		inline bool has_logged_in = false;
+		inline bool just_logged_in = false;
 		inline bool just_timed_out = false;
 
 		inline std::string popup_message;
@@ -601,7 +601,7 @@ namespace network
 		{
 			network_thread_should_run = true;
 
-			while (network_thread_should_run)
+			while (!globals::should_exit)
 			{
 				if (should_login)
 				{

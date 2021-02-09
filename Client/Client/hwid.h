@@ -272,7 +272,6 @@ namespace hwid
 
 	inline std::string get()
 	{
-		//return "{11111111-2222-3333-4444-555555555570}";
 		int seed = hash::fnv1a(cpu_info()) + hash::fnv1a(username()) ^ hash::fnv1a(temp_path()) * hash::fnv1a(std::to_string(file_date()));
 		return random::get_uuid(seed);
 	}
